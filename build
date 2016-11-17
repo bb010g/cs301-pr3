@@ -1,0 +1,14 @@
+#!/bin/bash
+
+./gradlew distTar
+./gradlew delombok
+
+# normal-src
+rm -r normal-src
+cp -r gbuild/delombok/edu/cwu/cs301/bb010g/pr3 normal-src
+for file in normal-src/*.java; do
+  sed -i '2s|^|// |;s/edu\.cwu\.cs301\.bb010g\.pr3\.//g' "$file"
+done
+
+echo
+cat README.md

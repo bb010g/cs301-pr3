@@ -1,0 +1,6 @@
+#!/bin/bash
+
+printf "%s\0" "$@" > gradle-run-args
+#./gradlew runApp -q
+gradle runApp -q
+rm gradle-run-args

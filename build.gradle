@@ -1,0 +1,102 @@
+plugins {
+    id 'io.franzbecker.gradle-lombok' version '1.8'
+    id 'java'
+    id 'application'
+    id 'jacoco'
+    id 'eclipse'
+}
+
+repositories {
+    jcenter()
+}
+
+dependencies {
+    // compile 'com.google.guava:guava:19.0'
+
+    testCompile 'org.slf4j:slf4j-api:1.7.21'
+    testCompile 'junit:junit:4.12'
+    testCompile 'com.pholser:junit-quickcheck-core:0.7-beta-2'
+    testCompile 'com.pholser:junit-quickcheck-generators:0.7-beta-2'
+    testCompile 'org.apache.commons:commons-lang3:3.5'
+}
+
+buildDir = "${project.projectDir}/gbuild"
+
+ext.mainClass = project.hasProperty('mainClass') ?
+    project.getProperty('mainClass') :
+    'edu.cwu.cs301.bb010g.pr3.Fallback'
+mainClassName = ext.mainClass
+
+task runApp(type: JavaExec) {
+  classpath = sourceSets.main.runtimeClasspath
+  main = mainClassName
+
+  def argArr = []
+  def argFile = new File("${project.projectDir}/gradle-run-args")
+  if (argFile.exists()) {
+    argArr << []
+    argFile.getBytes().each { c ->
+      if (c) {
+        argArr.last() << c
+      } else {
+        argArr << new String(argArr.pop() as byte[])
+        argArr << []
+      }
+    }
+    argArr.push(new String(argArr.pop() as byte[]))
+  }
+  args argArr.grep()
+}
+
+jacocoTestReport {
+    afterEvaluate {
+        classDirectories = files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: 'edu/cwu/cs301/bb010g/pr3/Fallback.class')
+        })
+    }
+}
+
+compileJava {
+    sourceCompatibility = 1.7
+    targetCompatibility = 1.7
+}
+
+version = '1.0'
+jar {
+    manifest {
+        attributes 'Implementation-Title': 'Project 3',
+                   'Implementation-Version': version
+    }
+}
+
+lombok {
+    version = "1.16.10"
+    sha256 = "7e9079406585c67fe25f607c34b17fbed48da0a9bceb15c09a558444cefcef0e"
+}
+
+eclipse {
+    project {
+        natures 'org.eclipse.buildship.core.gradleprojectnature'
+    }
+}
+
+import io.franzbecker.gradle.lombok.task.DelombokTask
+
+task delombok(type: DelombokTask, dependsOn: compileJava) {
+    ext.outputDir = file("$buildDir/delombok")
+    outputs.dir(outputDir)
+    sourceSets.main.java.srcDirs.each { 
+        inputs.dir(it)
+        args(it, "-d", outputDir)
+    }
+}
+
+task delombokHelp(type: DelombokTask) {
+    args "--help"
+}
+
+javadoc {
+    dependsOn delombok
+    source = delombok.outputDir
+    failOnError = false
+}
