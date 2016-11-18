@@ -1,5 +1,6 @@
-package edu.cwu.cs301.bb010g.pr3;
+package edu.cwu.cs301.bb010g;
 
+import java.util.Comparator;
 import java.util.Map;
 
 import lombok.AllArgsConstructor;
@@ -43,14 +44,13 @@ final public class Pair<A, B> implements Map.Entry<A, B>, Comparable<Pair<A, B>>
 
   public static <A extends Comparable<A>, B extends Comparable<B>> int compareTo(final Pair<A, B> p,
       final Pair<A, B> q) {
-    val fstCmp = p.fst.compareTo(q.fst);
+    val fstCmp = Comparator.nullsFirst(A::compareTo).compare(p.fst, q.fst);
     if (fstCmp != 0) {
       return fstCmp;
     }
-    return p.snd.compareTo(q.snd);
+    return Comparator.nullsFirst(B::compareTo).compare(p.snd, q.snd);
   }
 
-  // evil, I know
   @SuppressWarnings({"rawtypes", "unchecked"})
   @Override
   public int compareTo(final Pair<A, B> that) {

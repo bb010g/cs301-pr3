@@ -1,5 +1,6 @@
 package edu.cwu.cs301.bb010g.pr3;
 
+import edu.cwu.cs301.bb010g.IntPair;
 import edu.cwu.cs301.bb010g.pr3.Board.CastlingOpt;
 import edu.cwu.cs301.bb010g.pr3.Piece.Color;
 import lombok.val;
@@ -17,7 +18,7 @@ public class Notation {
     int emptyCount = 0;
     for (int rank = Board.RANKS - 1; rank >= 0; rank--) {
       for (int file = 0; file < Board.FILES; file++) {
-        val piece = board.board()[file][rank];
+        val piece = board.piece(file, rank);
         if (piece == null) {
           emptyCount++;
           if (file == Board.FILES - 1) {
@@ -74,10 +75,10 @@ public class Notation {
           break white;
         }
         empty = false;
-        if (white.contains(CastlingOpt.KINGSIDE)) {
+        if (white.contains(CastlingOpt.H_SIDE)) {
           sb.append('K');
         }
-        if (white.contains(CastlingOpt.QUEENSIDE)) {
+        if (white.contains(CastlingOpt.A_SIDE)) {
           sb.append('Q');
         }
       }
@@ -87,10 +88,10 @@ public class Notation {
           break black;
         }
         empty = false;
-        if (black.contains(CastlingOpt.KINGSIDE)) {
+        if (black.contains(CastlingOpt.H_SIDE)) {
           sb.append('k');
         }
-        if (black.contains(CastlingOpt.QUEENSIDE)) {
+        if (black.contains(CastlingOpt.A_SIDE)) {
           sb.append('q');
         }
       }

@@ -1,9 +1,11 @@
 plugins {
     id 'io.franzbecker.gradle-lombok' version '1.8'
+    id 'me.tatarka.retrolambda' version '3.3.1'
     id 'java'
     id 'application'
     id 'jacoco'
     id 'eclipse'
+    id 'idea'
 }
 
 repositories {
@@ -11,7 +13,11 @@ repositories {
 }
 
 dependencies {
-    // compile 'com.google.guava:guava:19.0'
+    compile 'net.sourceforge.streamsupport:streamsupport:1.5.2'
+    compile 'net.sourceforge.streamsupport:streamsupport-cfuture:1.5.2'
+    compile 'net.sourceforge.streamsupport:streamsupport-atomic:1.5.2'
+    compile 'net.sourceforge.streamsupport:streamsupport-flow:1.5.2'
+    compile 'net.sourceforge.streamsupport:streamsupport-literal:1.5.2'
 
     testCompile 'org.slf4j:slf4j-api:1.7.21'
     testCompile 'junit:junit:4.12'
@@ -57,8 +63,9 @@ jacocoTestReport {
 }
 
 compileJava {
-    sourceCompatibility = 1.7
-    targetCompatibility = 1.7
+    // Retrolambda FTW
+    // sourceCompatibility = 1.7
+    // targetCompatibility = 1.7
 }
 
 version = '1.0'

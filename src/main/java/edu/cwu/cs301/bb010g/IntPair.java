@@ -1,4 +1,4 @@
-package edu.cwu.cs301.bb010g.pr3;
+package edu.cwu.cs301.bb010g;
 
 import java.util.Map;
 
@@ -35,9 +35,6 @@ final public class IntPair implements Map.Entry<Integer, Integer>, Comparable<In
 
   @Override
   public int compareTo(final IntPair that) {
-    if (that == null) {
-      return 1;
-    }
     val fstCmp = Integer.compare(this.fst, that.fst);
     if (fstCmp != 0) {
       return fstCmp;

@@ -1,7 +1,12 @@
-package edu.cwu.cs301.bb010g.pr3;
+package edu.cwu.cs301.bb010g;
 
 import java.util.Comparator;
 import java.util.EnumSet;
+
+import java8.util.Spliterator;
+import java8.util.Spliterators;
+import java8.util.stream.Stream;
+import java8.util.stream.StreamSupport;
 
 import lombok.RequiredArgsConstructor;
 import lombok.val;
@@ -47,7 +52,6 @@ public class Util {
       }
       return 0;
     }
-
   }
 
   @RequiredArgsConstructor
@@ -69,5 +73,24 @@ public class Util {
       }
       return 0;
     }
+  }
+
+  @SuppressWarnings("unchecked")
+  public <E> Stream<E> streamArr(final E[] arr, final int additionalCharacteristics,
+      final boolean parallel) {
+    return StreamSupport.stream(
+        (Spliterator<E>) Spliterators.spliterator(arr, additionalCharacteristics), parallel);
+  }
+
+  public <E> Stream<E> streamImmutArr(final E[] arr, final boolean parallel) {
+    return Util.streamArr(arr, Spliterator.IMMUTABLE, parallel);
+  }
+
+  public <E> Stream<E> streamDistinctArr(final E[] arr, final boolean parallel) {
+    return Util.streamArr(arr, Spliterator.DISTINCT, parallel);
+  }
+
+  public <E> Stream<E> streamDistinctImmutArr(final E[] arr, final boolean parallel) {
+    return Util.streamArr(arr, Spliterator.DISTINCT | Spliterator.IMMUTABLE, parallel);
   }
 }

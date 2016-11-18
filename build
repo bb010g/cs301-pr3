@@ -1,14 +1,25 @@
 #!/bin/bash
 
-./gradlew distTar
-./gradlew delombok
+if [[ -z "$1" ]]; then
+  if [[ "x$PAGER" = "x" ]]; then
+    PAGER=less
+  fi
+  $PAGER README.md
+  read -n 1 -p 'Having read the usage instructions, are you sure you want to compile? (y/N) ' compile
+  echo
+else
+  compile=$1
+fi
+if [[ "x${compile/Y/y}" = "xy" ]]; then
+  ./gradlew distTar
+  ./gradlew delombok
+fi
 
 # normal-src
-rm -r normal-src
-cp -r gbuild/delombok/edu/cwu/cs301/bb010g/pr3 normal-src
+[[ -d normal-src ]] && rm -r normal-src
+mkdir normal-src
+cp gbuild/delombok/edu/cwu/cs301/bb010g/pr3/*.java normal-src
+cp gbuild/delombok/edu/cwu/cs301/bb010g/*.java normal-src
 for file in normal-src/*.java; do
-  sed -i '2s|^|// |;s/edu\.cwu\.cs301\.bb010g\.pr3\.//g' "$file"
+  sed -i '2s|^|// |;s/bb010g\.pr3\./bb010g\./g;s/edu\.cwu\.cs301\.bb010g\.//g' "$file"
 done
-
-echo
-cat README.md
