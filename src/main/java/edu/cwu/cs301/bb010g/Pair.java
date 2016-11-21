@@ -46,7 +46,7 @@ final public class Pair<A, B> implements Map.Entry<A, B> {
 
   public static <A extends Comparable<A>, B extends Comparable<B>> int compareTo(final Pair<A, B> p,
       final Pair<A, B> q) {
-    return compareToWithComp(A::compareTo, B::compareTo, p, q);
+    return Pair.compareToWithComp(A::compareTo, B::compareTo, p, q);
   }
 
   public static <A, B> int compareToWithComp(final Comparator<A> compA, final Comparator<B> compB,

@@ -6,9 +6,12 @@ import java.util.EnumSet;
 import java8.util.Optional;
 import java8.util.Spliterator;
 import java8.util.Spliterators;
+import java8.util.function.Consumer;
+import java8.util.function.Predicate;
 import java8.util.stream.Stream;
 import java8.util.stream.StreamSupport;
 
+import lombok.RequiredArgsConstructor;
 import lombok.val;
 import lombok.experimental.UtilityClass;
 
@@ -31,7 +34,8 @@ public class Util {
     return 0;
   }
 
-  public <T extends Comparable<T>> int optionalEmptyFirstCompare(final Optional<T> o, final Optional<T> p) {
+  public <T extends Comparable<T>> int optionalEmptyFirstCompare(final Optional<T> o,
+      final Optional<T> p) {
     return Util.optionalEmptyFirstCompareWithComp(T::compareTo, o, p);
   }
 
@@ -77,5 +81,62 @@ public class Util {
 
   public <E> Stream<E> streamDistinctImmutArr(final E[] arr, final boolean parallel) {
     return Util.streamArr(arr, Spliterator.DISTINCT | Spliterator.IMMUTABLE, parallel);
+  }
+
+  public <E> Stream<E> takeWhileInclusive(final Stream<E> source, final Predicate<E> predicate) {
+    return StreamSupport.stream(new TakeWhileInclusiveSpliterator<>(source.spliterator(), predicate),
+        false);
+  }
+
+  @RequiredArgsConstructor
+  public class TakeWhileInclusiveSpliterator<T> implements Spliterator<T> {
+    private final Spliterator<T> source;
+    private final Predicate<T> predicate;
+    private boolean predicateHolds;
+
+    @Override
+    public boolean tryAdvance(final Consumer<? super T> action) {
+      return this.predicateHolds && this.source.tryAdvance(e -> {
+        if (this.predicate.test(e)) {
+          action.accept(e);
+        }
+      });
+    }
+
+    @Override
+    public Spliterator<T> trySplit() {
+      return null;
+    }
+
+    @Override
+    public long estimateSize() {
+      return this.predicateHolds ? this.source.estimateSize() : 0;
+    }
+
+    @Override
+    public int characteristics() {
+      return this.source.characteristics() & ~Spliterator.SIZED;
+    }
+
+    @Override
+    public void forEachRemaining(final Consumer<? super T> action) {
+      do {
+        /* whee */ } while (this.tryAdvance(action));
+    }
+
+    @Override
+    public long getExactSizeIfKnown() {
+      return Spliterators.getExactSizeIfKnown(this);
+    }
+
+    @Override
+    public boolean hasCharacteristics(final int characteristics) {
+      return Spliterators.hasCharacteristics(this, this.characteristics());
+    }
+
+    @Override
+    public Comparator<? super T> getComparator() {
+      return this.source.getComparator();
+    }
   }
 }
