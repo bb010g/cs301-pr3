@@ -1,5 +1,7 @@
 package edu.cwu.cs301.bb010g.pr3;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import edu.cwu.cs301.bb010g.IntPair;
 import edu.cwu.cs301.bb010g.pr3.Board.CastlingOpt;
 import edu.cwu.cs301.bb010g.pr3.Piece.Color;
@@ -68,46 +70,21 @@ public class Notation {
     sb.append(' ');
     {
       val castling = board.castling();
-      boolean empty = true;
-      white: {
-        val white = castling.white();
-        if (white.isEmpty()) {
-          break white;
-        }
-        empty = false;
-        if (white.contains(CastlingOpt.H_SIDE)) {
-          sb.append('K');
-        }
-        if (white.contains(CastlingOpt.A_SIDE)) {
-          sb.append('Q');
-        }
-      }
-      black: {
-        val black = castling.black();
-        if (black.isEmpty()) {
-          break black;
-        }
-        empty = false;
-        if (black.contains(CastlingOpt.H_SIDE)) {
-          sb.append('k');
-        }
-        if (black.contains(CastlingOpt.A_SIDE)) {
-          sb.append('q');
-        }
-      }
-      if (empty) {
+      val empty = new AtomicBoolean(true);
+      castling.white().ifPresent(opt -> {
+        empty.set(false);
+        sb.append(opt == CastlingOpt.H_SIDE ? 'K' : 'Q');
+      });
+      castling.black().ifPresent(opt -> {
+        empty.set(false);
+        sb.append(opt == CastlingOpt.H_SIDE ? 'k' : 'q');
+      });
+      if (empty.get()) {
         sb.append('-');
       }
     }
     sb.append(' ');
-    enPassant: {
-      val enPassantTarget = board.enPassantTarget();
-      if (enPassantTarget == null) {
-        sb.append('-');
-        break enPassant;
-      }
-      sb.append(Notation.coordToAlg(enPassantTarget));
-    }
+    sb.append(board.enPassantTarget().map(Notation::coordToAlg).orElse("-"));
     sb.append(' ');
     sb.append(board.halfmoveClock());
     sb.append(' ');

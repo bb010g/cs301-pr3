@@ -3,6 +3,8 @@ package edu.cwu.cs301.bb010g;
 import java.util.Comparator;
 import java.util.Map;
 
+import java8.util.Comparators;
+
 import lombok.AllArgsConstructor;
 import lombok.Value;
 import lombok.val;
@@ -11,7 +13,7 @@ import lombok.experimental.Wither;
 @Value
 @Wither
 @AllArgsConstructor(staticName = "of")
-final public class Pair<A, B> implements Map.Entry<A, B>, Comparable<Pair<A, B>> {
+final public class Pair<A, B> implements Map.Entry<A, B> {
   public A fst;
   public B snd;
 
@@ -44,18 +46,15 @@ final public class Pair<A, B> implements Map.Entry<A, B>, Comparable<Pair<A, B>>
 
   public static <A extends Comparable<A>, B extends Comparable<B>> int compareTo(final Pair<A, B> p,
       final Pair<A, B> q) {
-    val fstCmp = Comparator.nullsFirst(A::compareTo).compare(p.fst, q.fst);
+    return compareToWithComp(A::compareTo, B::compareTo, p, q);
+  }
+
+  public static <A, B> int compareToWithComp(final Comparator<A> compA, final Comparator<B> compB,
+      final Pair<A, B> p, final Pair<A, B> q) {
+    val fstCmp = Comparators.nullsFirst(compA).compare(p.fst, q.fst);
     if (fstCmp != 0) {
       return fstCmp;
     }
-    return Comparator.nullsFirst(B::compareTo).compare(p.snd, q.snd);
-  }
-
-  @SuppressWarnings({"rawtypes", "unchecked"})
-  @Override
-  public int compareTo(final Pair<A, B> that) {
-    final Pair p = this;
-    final Pair q = that;
-    return Pair.compareTo(p, q);
+    return Comparators.nullsFirst(compB).compare(p.snd, q.snd);
   }
 }

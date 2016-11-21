@@ -1,10 +1,11 @@
 package edu.cwu.cs301.bb010g.pr3;
 
 import java.util.Comparator;
-import java.util.EnumSet;
 import java.util.Iterator;
 
+import java8.util.Comparators;
 import java8.util.Objects;
+import java8.util.Optional;
 import java8.util.Spliterator;
 import java8.util.Spliterators;
 import java8.util.function.Consumer;
@@ -17,7 +18,6 @@ import edu.cwu.cs301.bb010g.Util;
 import edu.cwu.cs301.bb010g.pr3.Piece.Color;
 import edu.cwu.cs301.bb010g.pr3.Piece.Type;
 import lombok.AllArgsConstructor;
-import lombok.NonNull;
 import lombok.Value;
 import lombok.val;
 import lombok.experimental.Wither;
@@ -29,15 +29,17 @@ public class Board implements Comparable<Board>, Iterable<Pair<Piece, IntPair>> 
   public static int FILES = 8;
   public static int RANKS = 8;
   public static int SIZE = Board.FILES * Board.RANKS;
-  @NonNull
   Piece[] board;
-  @NonNull
   Color active;
-  @NonNull
   CastlingOpts castling;
+  // Optional
   IntPair enPassantTarget;
   int halfmoveClock;
   int fullmoveNum;
+
+  public Optional<IntPair> enPassantTarget() {
+    return Optional.ofNullable(this.enPassantTarget);
+  }
 
   public enum CastlingOpt {
     A_SIDE, H_SIDE
@@ -47,51 +49,33 @@ public class Board implements Comparable<Board>, Iterable<Pair<Piece, IntPair>> 
   @Wither
   @AllArgsConstructor(staticName = "of")
   public static class CastlingOpts implements Comparable<CastlingOpts> {
-    @NonNull
-    EnumSet<CastlingOpt> white;
-    @NonNull
-    EnumSet<CastlingOpt> black;
+    Optional<CastlingOpt> white;
+    Optional<CastlingOpt> black;
 
     public static CastlingOpts starting() {
-      return CastlingOpts.of(EnumSet.allOf(CastlingOpt.class), EnumSet.allOf(CastlingOpt.class));
+      return new CastlingOpts(Optional.empty(), Optional.empty());
     }
 
-    public static CastlingOpts unavailable() {
-      return CastlingOpts.of(EnumSet.noneOf(CastlingOpt.class), EnumSet.noneOf(CastlingOpt.class));
+    public boolean castled(final Color color) {
+      return color == Color.WHITE ? this.white.isPresent() : this.black.isPresent();
     }
 
-    public EnumSet<CastlingOpt> castlingOpts(final Color color) {
+    public Optional<CastlingOpt> castlingOpt(final Color color) {
       return color == Color.WHITE ? this.white : this.black;
     }
 
-    public CastlingOpts withCastlingOpts(final Color color, final EnumSet<CastlingOpt> opts) {
-      return color == Color.WHITE ? this.withWhite(opts) : this.withBlack(opts);
-    }
-
-    public boolean castlingOpt(final Color color, final CastlingOpt opt) {
-      return this.castlingOpts(color).contains(opt);
-    }
-
-    public CastlingOpts withCastlingOpt(final Color color, final CastlingOpt opt) {
-      val opts = EnumSet.copyOf(this.castlingOpts(color));
-      opts.add(opt);
-      return this.withCastlingOpts(color, opts);
-    }
-
-    public CastlingOpts withoutCastlingOpt(final Color color, final CastlingOpt opt) {
-      val opts = EnumSet.copyOf(this.castlingOpts(color));
-      opts.remove(opt);
-      return this.withCastlingOpts(color, opts);
+    public CastlingOpts withCastle(final Color color, final CastlingOpt opt) {
+      return color == Color.WHITE ? this.withWhite(Optional.of(opt))
+          : this.withBlack(Optional.of(opt));
     }
 
     @Override
     public int compareTo(final CastlingOpts that) {
-      final int whiteCmp =
-          new Util.EnumSetComparator<CastlingOpt>().compare(this.white, that.white);
+      final int whiteCmp = Util.optionalEmptyFirstCompare(this.white, that.white);
       if (whiteCmp != 0) {
         return whiteCmp;
       }
-      return new Util.EnumSetComparator<CastlingOpt>().compare(this.black, that.black);
+      return Util.optionalEmptyFirstCompare(this.black, that.black);
     }
   }
 
@@ -144,14 +128,52 @@ public class Board implements Comparable<Board>, Iterable<Pair<Piece, IntPair>> 
     return this.withPiece(piece, coord.fst, coord.snd);
   }
 
+  public Board withoutPiece(final int file, final int rank) {
+    return this.withPiece(null, file, rank);
+  }
+
+  public Board withoutPiece(final IntPair coord) {
+    return this.withPiece(null, coord);
+  }
+
+  @SafeVarargs
+  public final Board withPieces(final Pair<Piece, IntPair>... pieces) {
+    val board = new Piece[Board.SIZE];
+    System.arraycopy(this.board, 0, Board.SIZE, 0, Board.SIZE);
+    for (val pieceP : pieces) {
+      val piece = pieceP.fst;
+      val coord = pieceP.snd;
+      board[coord.fst * Board.RANKS + coord.snd] = piece;
+    }
+    return this.withBoard(board);
+  }
+
+  public Board withoutPieces(final IntPair... coords) {
+    val board = new Piece[Board.SIZE];
+    System.arraycopy(this.board, 0, Board.SIZE, 0, Board.SIZE);
+    for (val coord : coords) {
+      board[coord.fst * Board.RANKS + coord.snd] = null;
+    }
+    return this.withBoard(board);
+  }
+
   public Piece piece(final IntPair coord) {
     return this.board[coord.fst * Board.RANKS + coord.snd];
   }
 
   public Piece[] rankRaw(final int rank) {
     val out = new Piece[Board.FILES];
-    for (int i = 0; i < Board.FILES; i++) {
-      out[i] = this.board[i * Board.RANKS + rank];
+    for (int file = 0; file < Board.FILES; file++) {
+      out[file] = this.board[file * Board.RANKS + rank];
+    }
+    return out;
+  }
+
+  public Pair<Piece, Integer>[] rank(final int rank) {
+    @SuppressWarnings("unchecked")
+    final Pair<Piece, Integer>[] out = new Pair[Board.FILES];
+    for (int file = 0; file < Board.FILES; file++) {
+      out[file] = Pair.of(this.board[file * Board.RANKS + rank], file);
     }
     return out;
   }
@@ -162,7 +184,7 @@ public class Board implements Comparable<Board>, Iterable<Pair<Piece, IntPair>> 
 
   @Override
   public int compareTo(final Board that) {
-    final int boardCmp = new Util.CompObjArrComparator<Piece>().compare(this.board, that.board);
+    final int boardCmp = Util.objArrCompare(this.board, that.board);
     if (boardCmp != 0) {
       return boardCmp;
     }
@@ -174,8 +196,8 @@ public class Board implements Comparable<Board>, Iterable<Pair<Piece, IntPair>> 
     if (castlingCmp != 0) {
       return castlingCmp;
     }
-    val enPassantTargetCmp = Comparator.nullsFirst(IntPair::compareTo).compare(this.enPassantTarget,
-        that.enPassantTarget);
+    val enPassantTargetCmp = Comparators.nullsFirst(IntPair::compareTo)
+        .compare(this.enPassantTarget, that.enPassantTarget);
     if (enPassantTargetCmp != 0) {
       return enPassantTargetCmp;
     }
@@ -218,17 +240,27 @@ public class Board implements Comparable<Board>, Iterable<Pair<Piece, IntPair>> 
     public Pair<Piece, IntPair> next() {
       val out = Pair.of(this.board[this.index], IntPair.of(this.file, this.rank));
       this.index++;
-      this.file++;
-      this.rank++;
+      if (++this.rank == Board.RANKS) {
+        this.rank = 0;
+        this.file++;
+      }
       return out;
     }
   }
 
   public Stream<Piece> streamRaw() {
+    return StreamSupport.stream(this.spliteratorRaw(), false);
+  }
+
+  public Stream<Piece> streamRawParallel() {
     return StreamSupport.stream(this.spliteratorRaw(), true);
   }
 
   public Stream<Pair<Piece, IntPair>> stream() {
+    return StreamSupport.stream(this.spliterator8(), false);
+  }
+
+  public Stream<Pair<Piece, IntPair>> streamParallel() {
     return StreamSupport.stream(this.spliterator8(), true);
   }
 

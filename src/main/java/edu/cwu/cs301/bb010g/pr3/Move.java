@@ -1,6 +1,7 @@
 package edu.cwu.cs301.bb010g.pr3;
 
-import java.util.Comparator;
+import java8.util.Comparators;
+import java8.util.Optional;
 
 import edu.cwu.cs301.bb010g.IntPair;
 import edu.cwu.cs301.bb010g.pr3.Board.CastlingOpt;
@@ -17,41 +18,53 @@ import lombok.experimental.Wither;
 @Builder(builderClassName = "Builder", builderMethodName = "rawBuilder")
 @AllArgsConstructor(staticName = "of")
 public class Move implements Comparable<Move> {
-  @NonNull
   Piece piece;
-  @NonNull
   IntPair src;
+  // Optional
   IntPair dest;
   boolean capture;
   boolean enPassant;
+  // Optional
   Type promotion;
+  // Optional
   CastlingData castling;
   boolean check;
   boolean checkmate;
   boolean drawOffer;
+
+  public Optional<IntPair> dest() {
+    return Optional.ofNullable(this.dest);
+  }
+
+  public Optional<Type> promotion() {
+    return Optional.ofNullable(this.promotion);
+  }
+
+  public Optional<CastlingData> castling() {
+    return Optional.ofNullable(this.castling);
+  }
 
   public static Move.Builder builder() {
     return Move.rawBuilder().dest(null).capture(false).enPassant(false).promotion(null)
         .castling(null).check(false).checkmate(false).drawOffer(false);
   }
 
-  public static Move.Builder builderMove(final Piece piece, final IntPair src,
-      final @NonNull IntPair dest) {
+  public static Move.Builder builderMove(final Piece piece, final IntPair src, final IntPair dest) {
     return Move.builder().piece(piece).src(src).dest(dest);
   }
 
   public static Move.Builder builderCapture(final Piece piece, final IntPair src,
-      final @NonNull IntPair dest) {
-    return Move.builder().piece(piece).src(src).dest(dest).capture(true);
+      final IntPair dest) {
+    return Move.builderMove(piece, src, dest).capture(true);
   }
 
   public static Move.Builder builderEnPassant(final Piece piece, final IntPair src,
-      final @NonNull IntPair dest) {
-    return Move.builder().piece(piece).src(src).dest(dest).capture(true).enPassant(true);
+      final IntPair dest) {
+    return Move.builderCapture(piece, src, dest).enPassant(true);
   }
 
   public static Move.Builder builderCastling(final Piece piece, final IntPair src,
-      final @NonNull CastlingData castling) {
+      final CastlingData castling) {
     return Move.builder().piece(piece).src(src).castling(castling);
   }
 
@@ -93,7 +106,7 @@ public class Move implements Comparable<Move> {
     if (srcCmp != 0) {
       return srcCmp;
     }
-    val destCmp = Comparator.nullsFirst(IntPair::compareTo).compare(this.dest, that.dest);
+    val destCmp = Comparators.nullsFirst(IntPair::compareTo).compare(this.dest, that.dest);
     if (destCmp != 0) {
       return destCmp;
     }
@@ -106,12 +119,12 @@ public class Move implements Comparable<Move> {
       return enPassantCmp;
     }
     val promotionCmp =
-        Comparator.nullsFirst(Type::compareTo).compare(this.promotion, that.promotion);
+        Comparators.nullsFirst(Type::compareTo).compare(this.promotion, that.promotion);
     if (promotionCmp != 0) {
       return promotionCmp;
     }
     val castlingCmp =
-        Comparator.nullsFirst(CastlingData::compareTo).compare(this.castling, that.castling);
+        Comparators.nullsFirst(CastlingData::compareTo).compare(this.castling, that.castling);
     if (castlingCmp != 0) {
       return castlingCmp;
     }

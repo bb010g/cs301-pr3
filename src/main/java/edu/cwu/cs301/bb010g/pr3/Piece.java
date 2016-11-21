@@ -1,8 +1,10 @@
 package edu.cwu.cs301.bb010g.pr3;
 
+import java8.util.Comparators;
+import java8.util.Optional;
+
 import edu.cwu.cs301.bb010g.pr3.Board.CastlingOpt;
 import lombok.AllArgsConstructor;
-import lombok.NonNull;
 import lombok.Value;
 import lombok.val;
 import lombok.experimental.Wither;
@@ -11,11 +13,10 @@ import lombok.experimental.Wither;
 @Wither
 @AllArgsConstructor(staticName = "of")
 public class Piece implements Comparable<Piece> {
-  @NonNull
   Type type;
-  @NonNull
   Color color;
   boolean moved;
+  // Optional
   CastlingOpt rookSide;
 
   public static Piece of(final Type type, final Color color) {
@@ -24,6 +25,10 @@ public class Piece implements Comparable<Piece> {
 
   public static Piece of(final Type type, final Color color, final CastlingOpt rookSide) {
     return new Piece(type, color, false, rookSide);
+  }
+
+  public Optional<CastlingOpt> rookSide() {
+    return Optional.ofNullable(this.rookSide);
   }
 
   public Piece move() {
@@ -54,6 +59,6 @@ public class Piece implements Comparable<Piece> {
     if (moveCmp != 0) {
       return moveCmp;
     }
-    return this.rookSide.compareTo(that.rookSide);
+    return Comparators.nullsFirst(CastlingOpt::compareTo).compare(this.rookSide, that.rookSide);
   }
 }
