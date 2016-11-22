@@ -1,9 +1,7 @@
 package edu.cwu.cs301.bb010g.pr3;
 
-import java8.util.Comparators;
 import java8.util.Optional;
 
-import edu.cwu.cs301.bb010g.pr3.Board.CastlingOpt;
 import lombok.AllArgsConstructor;
 import lombok.Value;
 import lombok.val;
@@ -15,24 +13,19 @@ import lombok.experimental.Wither;
 public class Piece implements Comparable<Piece> {
   Type type;
   Color color;
-  boolean moved;
   // Optional
-  CastlingOpt rookSide;
+  int rookSide;
 
   public static Piece of(final Type type, final Color color) {
-    return new Piece(type, color, false, null);
+    return new Piece(type, color, -1);
   }
 
-  public static Piece of(final Type type, final Color color, final CastlingOpt rookSide) {
-    return new Piece(type, color, false, rookSide);
+  public Optional<Integer> rookSide() {
+    return this.rookSide == -1 ? Optional.empty() : Optional.of(this.rookSide);
   }
 
-  public Optional<CastlingOpt> rookSide() {
-    return Optional.ofNullable(this.rookSide);
-  }
-
-  public Piece move() {
-    return this.withMoved(true);
+  public int rookSideRaw() {
+    return this.rookSide;
   }
 
   public enum Color {
@@ -55,10 +48,6 @@ public class Piece implements Comparable<Piece> {
     if (colorCmp != 0) {
       return colorCmp;
     }
-    val moveCmp = Boolean.compare(this.moved, that.moved);
-    if (moveCmp != 0) {
-      return moveCmp;
-    }
-    return Comparators.nullsFirst(CastlingOpt::compareTo).compare(this.rookSide, that.rookSide);
+    return Integer.compare(this.rookSide, that.rookSide);
   }
 }

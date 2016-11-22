@@ -30,7 +30,7 @@ buildDir = "${project.projectDir}/gbuild"
 
 ext.mainClass = project.hasProperty('mainClass') ?
     project.getProperty('mainClass') :
-    'edu.cwu.cs301.bb010g.pr3.Fallback'
+    'edu.cwu.cs301.bb010g.pr3.CheckMateIn3'
 mainClassName = ext.mainClass
 
 task runApp(type: JavaExec) {

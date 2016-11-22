@@ -42,7 +42,8 @@ public class Eithers {
     return Eithers.right(optional.get());
   }
 
-  public <L, R> Either<L, R> fromOptionalGet(final Optional<R> optional, final Supplier<? extends L> emptySupplier) {
+  public <L, R> Either<L, R> fromOptionalGet(final Optional<R> optional,
+      final Supplier<? extends L> emptySupplier) {
     if (!optional.isPresent()) {
       return Eithers.left(emptySupplier.get());
     }
@@ -53,7 +54,8 @@ public class Eithers {
    * Maps either the left or the right side of this disjunction.
    */
   public <L, R, X, Y> Either<X, Y> bimap(final Either<L, R> that,
-      final Function<? super L, ? extends X> leftMapper, final Function<? super R, ? extends Y> rightMapper) {
+      final Function<? super L, ? extends X> leftMapper,
+      final Function<? super R, ? extends Y> rightMapper) {
     if (that.isLeft()) {
       return Eithers.left(leftMapper.apply(that.getLeft()));
     }
@@ -89,7 +91,8 @@ public class Eithers {
     return out;
   }
 
-  public <L, R, U> U fold(final Either<L, R> that, final Function<? super L, ? extends U> leftMapper,
+  public <L, R, U> U fold(final Either<L, R> that,
+      final Function<? super L, ? extends U> leftMapper,
       final Function<? super R, ? extends U> rightMapper) {
     if (that.isLeft()) {
       return leftMapper.apply(that.getLeft());
@@ -104,7 +107,8 @@ public class Eithers {
     return that.get();
   }
 
-  public <L, R> R getOrElseGet(final Either<L, R> that, final Function<? super L, ? extends R> other) {
+  public <L, R> R getOrElseGet(final Either<L, R> that,
+      final Function<? super L, ? extends R> other) {
     if (that.isLeft()) {
       return other.apply(that.getLeft());
     }
@@ -140,7 +144,8 @@ public class Eithers {
     };
   }
 
-  public <L, R, U> Either<L, U> map(final Either<L, R> that, final Function<? super R, ? extends U> mapper) {
+  public <L, R, U> Either<L, U> map(final Either<L, R> that,
+      final Function<? super R, ? extends U> mapper) {
     if (that.isLeft()) {
       // safe because right is absent
       @SuppressWarnings("unchecked")

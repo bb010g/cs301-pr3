@@ -1,10 +1,13 @@
 package edu.cwu.cs301.bb010g.pr3;
 
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
+
+import java8.util.stream.IntStreams;
 
 import edu.cwu.cs301.bb010g.IntPair;
-import edu.cwu.cs301.bb010g.pr3.Board.CastlingOpt;
+import edu.cwu.cs301.bb010g.pr3.Board.CastlingOpts;
 import edu.cwu.cs301.bb010g.pr3.Piece.Color;
+import edu.cwu.cs301.bb010g.pr3.Piece.Type;
 import lombok.val;
 import lombok.experimental.UtilityClass;
 
@@ -15,8 +18,12 @@ public class Notation {
         .toString();
   }
 
+  public IntPair algToCoord(final String alg) {
+    return IntPair.of(alg.charAt(0) - 97, alg.charAt(1) - 49);
+  }
+
   public String boardToFen(final Board board) {
-    val sb = new StringBuilder();
+    val fen = new StringBuilder();
     int emptyCount = 0;
     for (int rank = Board.RANKS - 1; rank >= 0; rank--) {
       for (int file = 0; file < Board.FILES; file++) {
@@ -24,13 +31,13 @@ public class Notation {
         if (piece == null) {
           emptyCount++;
           if (file == Board.FILES - 1) {
-            sb.append(emptyCount);
+            fen.append(emptyCount);
             emptyCount = 0;
           }
           continue;
         }
         if (emptyCount > 0) {
-          sb.append(emptyCount);
+          fen.append(emptyCount);
           emptyCount = 0;
         }
         char c = 0;
@@ -59,36 +66,250 @@ public class Notation {
         if (piece.color() == Color.BLACK) {
           c += 32;
         }
-        sb.append(c);
+        fen.append(c);
       }
       if (rank == Board.RANKS - 1) {
         break;
       }
     }
-    sb.append(' ');
-    sb.append(board.active() == Color.WHITE ? 'w' : 'b');
-    sb.append(' ');
+    fen.append(' ');
+    fen.append(board.active() == Color.WHITE ? 'w' : 'b');
+    fen.append(' ');
     {
       val castling = board.castling();
-      val empty = new AtomicBoolean(true);
-      castling.white().ifPresent(opt -> {
-        empty.set(false);
-        sb.append(opt == CastlingOpt.H_SIDE ? 'K' : 'Q');
-      });
-      castling.black().ifPresent(opt -> {
-        empty.set(false);
-        sb.append(opt == CastlingOpt.H_SIDE ? 'k' : 'q');
-      });
-      if (empty.get()) {
-        sb.append('-');
+      val whiteOpts = castling.white();
+      val blackOpts = castling.black();
+      boolean used = false;
+      if (whiteOpts != CastlingOpts.USED) {
+        used = true;
+        if ((whiteOpts & CastlingOpts.A_SIDE) != 0) {
+          fen.append('Q');
+        }
+        if ((whiteOpts & CastlingOpts.H_SIDE) != 0) {
+          fen.append('K');
+        }
+      }
+      if (blackOpts != CastlingOpts.USED) {
+        used = true;
+        if ((blackOpts & CastlingOpts.A_SIDE) != 0) {
+          fen.append('q');
+        }
+        if ((blackOpts & CastlingOpts.H_SIDE) != 0) {
+          fen.append('k');
+        }
+      }
+      if (!used) {
+        fen.append('-');
       }
     }
-    sb.append(' ');
-    sb.append(board.enPassantTarget().map(Notation::coordToAlg).orElse("-"));
-    sb.append(' ');
-    sb.append(board.halfmoveClock());
-    sb.append(' ');
-    sb.append(board.fullmoveNum());
-    return sb.toString();
+    fen.append(' ');
+    fen.append(board.enPassantTarget().map(Notation::coordToAlg).orElse("-"));
+    fen.append(' ');
+    fen.append(board.halfmoveClock());
+    fen.append(' ');
+    fen.append(board.fullmoveNum());
+    return fen.toString();
+  }
+
+  static Pattern FEN = Pattern.compile("(?<board>(?:[PpNnBbRrQqKk0-9]+/)+[PpNnBbRrQqKk0-9]+) "
+      + "(?<active>[wb]) (?<castling>[KQkq]|-) (?<enPassantTarget>[a-z]+[0-9]+|-) "
+      + "(?<halfmoveClock>[0-9]+) (?<fullmoveNum>[0-9]+)");
+  static Pattern FEN_BOARD_BS = Pattern.compile("/");
+
+  public Board fenToBoard(final String fen) {
+    val matcher = Notation.FEN.matcher(fen);
+    if (!matcher.matches()) {
+      throw new IllegalArgumentException("FEN doesn't match");
+    }
+
+    final Piece[] board;
+    final Color active;
+    final CastlingOpts castling;
+    final IntPair enPassantTarget;
+    final int halfmoveClock;
+    final int fullmoveNum;
+
+    {
+      val boardStr = matcher.group("board");
+      val ranks = Notation.FEN_BOARD_BS.split(boardStr);
+      board = new Piece[Board.SIZE];
+      int i = 0;
+      for (int rankI = ranks.length - 1; rankI >= 0; rankI--) {
+        val rank = ranks[rankI];
+        int fileI = 0;
+        for (val ch : rank.toCharArray()) {
+          if (Character.isDigit(ch)) {
+            final int skip = ch - 49;
+            i += skip;
+            fileI += skip;
+          } else {
+            val color = Character.isUpperCase(ch) ? Color.WHITE : Color.BLACK;
+            final Type type;
+            int rookSide = -1;
+            val p = Character.toLowerCase(ch);
+            if (p == 'p') {
+              type = Type.PAWN;
+            } else if (p == 'n') {
+              type = Type.KNIGHT;
+            } else if (p == 'r') {
+              type = Type.ROOK;
+              if ((Board.RANKS - rankI + 1) == Moves.mainRank(color)) {
+                if (fileI == 0) {
+                  rookSide = CastlingOpts.A_SIDE;
+                } else if (fileI == Board.FILES) {
+                  rookSide = CastlingOpts.H_SIDE;
+                }
+              }
+            } else if (p == 'b') {
+              type = Type.BISHOP;
+            } else if (p == 'q') {
+              type = Type.QUEEN;
+            } else if (p == 'k') {
+              type = Type.KING;
+            } else {
+              throw new IllegalArgumentException();
+            }
+            board[i] = Piece.of(type, color, rookSide);
+            i++;
+            fileI++;
+          }
+        }
+      }
+    }
+    {
+      val activeStr = matcher.group("active");
+      val activeChar = activeStr.charAt(0);
+      if (activeChar == 'w') {
+        active = Color.WHITE;
+      } else if (activeChar == 'b') {
+        active = Color.BLACK;
+      } else {
+        throw new IllegalArgumentException("active");
+      }
+    }
+    {
+      val castlingStr = matcher.group("castling");
+      if (castlingStr.charAt(0) == '-') {
+        castling = CastlingOpts.BOTH_USED;
+      } else {
+        int whiteOpts = CastlingOpts.USED;
+        int blackOpts = CastlingOpts.USED;
+        for (val ch : castlingStr.toCharArray()) {
+          if (ch == 'Q') {
+            whiteOpts &= CastlingOpts.A_SIDE;
+          } else if (ch == 'K') {
+            whiteOpts &= CastlingOpts.H_SIDE;
+          } else if (ch == 'q') {
+            blackOpts &= CastlingOpts.A_SIDE;
+          } else if (ch == 'k') {
+            blackOpts &= CastlingOpts.H_SIDE;
+          }
+        }
+        castling = CastlingOpts.of(whiteOpts, blackOpts);
+      }
+    }
+    {
+      val enPassantTargetStr = matcher.group("enPassantTarget");
+      if (enPassantTargetStr.charAt(0) == '-') {
+        enPassantTarget = null;
+      } else {
+        enPassantTarget = Notation.algToCoord(enPassantTargetStr);
+      }
+    }
+    {
+      val halfmoveClockStr = matcher.group("halfmoveClock");
+      halfmoveClock = Integer.parseInt(halfmoveClockStr);
+    }
+    {
+      val fullmoveNumStr = matcher.group("fullmoveNum");
+      fullmoveNum = Integer.parseInt(fullmoveNumStr);
+    }
+
+    return Board.of(board, active, castling, enPassantTarget, halfmoveClock, fullmoveNum);
+  }
+
+  public String moveToAlg(final Move move) {
+    if (move.castling().isPresent()) {
+      val castling = move.castling().get();
+      val castlingOpt = castling.castlingOpt();
+      if (castlingOpt == CastlingOpts.A_SIDE) {
+        return "0-0-0";
+      } else if (castlingOpt == CastlingOpts.H_SIDE) {
+        return "0-0";
+      } else {
+        return null;
+      }
+    }
+    val alg = new StringBuilder();
+    val piece = move.piece();
+    val type = piece.type();
+    alg.append(Notation.typeChar(type));
+    // possibly unnecessary disambiguation, but screw trying to find out when it's actually needed
+    alg.append(Notation.coordToAlg(move.src()));
+    if (move.capture()) {
+      alg.append('x');
+      alg.append(Notation.coordToAlg(move.dest().get()));
+      if (move.enPassant()) {
+        alg.append("e.p.");
+      }
+    }
+    move.promotion().ifPresent(pType -> {
+      alg.append('=');
+      alg.append(Notation.typeChar(pType));
+    });
+    if (move.checkmate()) {
+      alg.append('+');
+    } else if (move.check()) {
+      alg.append('#');
+    }
+    if (move.drawOffer()) {
+      alg.append(" (=)");
+    }
+    return alg.toString();
+  }
+
+  public char typeChar(final Type type) {
+    final char typeCh;
+    if (type == Type.PAWN) {
+      typeCh = 'P';
+    } else if (type == Type.KNIGHT) {
+      typeCh = 'N';
+    } else if (type == Type.ROOK) {
+      typeCh = 'R';
+    } else if (type == Type.BISHOP) {
+      typeCh = 'B';
+    } else if (type == Type.QUEEN) {
+      typeCh = 'Q';
+    } else if (type == Type.KING) {
+      typeCh = 'K';
+    } else {
+      throw new IllegalArgumentException();
+    }
+    return typeCh;
+  }
+
+  public String drawBoard(final Piece[] board) {
+    val art = new StringBuilder();
+    art.append('{');
+    IntStreams.range(1, Board.FILES * 2 - 1).forEach(n -> art.append('-'));
+    for (int rankI = Board.RANKS - 1; rankI >= 0; rankI--) {
+      for (int fileI = 0; fileI < Board.FILES; fileI++) {
+        val piece = board[fileI * Board.RANKS + rankI];
+        final char typeChar;
+        if (piece == null) {
+          typeChar = '.';
+        } else {
+          val typeChar_ = Notation.typeChar(piece.type());
+          typeChar = piece.color() == Color.WHITE ? typeChar_ : Character.toLowerCase(typeChar_);
+        }
+        art.append(typeChar);
+        if (fileI < Board.FILES - 1) {
+          art.append(' ');
+        }
+      }
+    }
+    IntStreams.range(0, Board.FILES * 2 - 2).forEach(n -> art.append('-'));
+    art.append('}');
+    return art.toString();
   }
 }

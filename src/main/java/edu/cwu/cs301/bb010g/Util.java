@@ -84,8 +84,8 @@ public class Util {
   }
 
   public <E> Stream<E> takeWhileInclusive(final Stream<E> source, final Predicate<E> predicate) {
-    return StreamSupport.stream(new TakeWhileInclusiveSpliterator<>(source.spliterator(), predicate),
-        false);
+    return StreamSupport
+        .stream(new TakeWhileInclusiveSpliterator<>(source.spliterator(), predicate), false);
   }
 
   @RequiredArgsConstructor

@@ -108,7 +108,8 @@ public interface Either<L, R> extends Iterable<R> {
     }
 
     @Override
-    public <U> Either<L, U> flatMap(final Function<? super R, ? extends Either<L, ? extends U>> mapper) {
+    public <U> Either<L, U> flatMap(
+        final Function<? super R, ? extends Either<L, ? extends U>> mapper) {
       // safe because U is a supertype
       @SuppressWarnings("unchecked")
       final Either<L, U> out = (Either<L, U>) mapper.apply(this.right);
@@ -206,7 +207,8 @@ public interface Either<L, R> extends Iterable<R> {
 
     @SuppressWarnings("unchecked")
     @Override
-    public <U> Either<L, U> flatMap(final Function<? super R, ? extends Either<L, ? extends U>> mapper) {
+    public <U> Either<L, U> flatMap(
+        final Function<? super R, ? extends Either<L, ? extends U>> mapper) {
       return (Either<L, U>) this;
     }
 

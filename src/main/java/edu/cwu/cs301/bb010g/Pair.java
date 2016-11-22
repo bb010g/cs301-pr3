@@ -4,6 +4,7 @@ import java.util.Comparator;
 import java.util.Map;
 
 import java8.util.Comparators;
+import java8.util.function.Function;
 
 import lombok.AllArgsConstructor;
 import lombok.Value;
@@ -27,6 +28,19 @@ final public class Pair<A, B> implements Map.Entry<A, B> {
 
   public IntPair asInt() {
     return IntPair.of((Integer) this.fst, (Integer) this.snd);
+  }
+
+  public <U> Pair<U, B> mapFst(Function<? super A, ? extends U> mapping) {
+    return Pair.of(mapping.apply(this.fst), this.snd);
+  }
+
+  public <U> Pair<A, U> mapSnd(Function<? super B, ? extends U> mapping) {
+    return Pair.of(this.fst, mapping.apply(this.snd));
+  }
+
+  public <U, V> Pair<U, V> bimap(Function<? super A, ? extends U> fstMapping,
+      Function<? super B, ? extends V> sndMapping) {
+    return Pair.of(fstMapping.apply(this.fst), sndMapping.apply(this.snd));
   }
 
   @Override

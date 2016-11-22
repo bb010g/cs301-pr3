@@ -4,11 +4,9 @@ import java8.util.Comparators;
 import java8.util.Optional;
 
 import edu.cwu.cs301.bb010g.IntPair;
-import edu.cwu.cs301.bb010g.pr3.Board.CastlingOpt;
 import edu.cwu.cs301.bb010g.pr3.Piece.Type;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.NonNull;
 import lombok.Value;
 import lombok.val;
 import lombok.experimental.Wither;
@@ -143,16 +141,13 @@ public class Move implements Comparable<Move> {
   @Wither
   @AllArgsConstructor(staticName = "of")
   public static class CastlingData implements Comparable<CastlingData> {
-    @NonNull
-    CastlingOpt castlingOpt;
-    @NonNull
+    int castlingOpt;
     Piece rook;
-    @NonNull
     IntPair rookCoord;
 
     @Override
     public int compareTo(final CastlingData that) {
-      val castlingOptCmp = this.castlingOpt.compareTo(that.castlingOpt);
+      val castlingOptCmp = Integer.compare(this.castlingOpt, that.castlingOpt);
       if (castlingOptCmp != 0) {
         return castlingOptCmp;
       }
