@@ -1,7 +1,5 @@
 package edu.cwu.cs301.bb010g.pr3;
 
-import java8.util.Optional;
-
 import lombok.AllArgsConstructor;
 import lombok.Value;
 import lombok.val;
@@ -13,20 +11,6 @@ import lombok.experimental.Wither;
 public class Piece implements Comparable<Piece> {
   Type type;
   Color color;
-  // Optional
-  int rookSide;
-
-  public static Piece of(final Type type, final Color color) {
-    return new Piece(type, color, -1);
-  }
-
-  public Optional<Integer> rookSide() {
-    return this.rookSide == -1 ? Optional.empty() : Optional.of(this.rookSide);
-  }
-
-  public int rookSideRaw() {
-    return this.rookSide;
-  }
 
   public enum Color {
     WHITE, BLACK;
@@ -44,10 +28,6 @@ public class Piece implements Comparable<Piece> {
     if (typeCmp != 0) {
       return typeCmp;
     }
-    val colorCmp = this.color.compareTo(that.color);
-    if (colorCmp != 0) {
-      return colorCmp;
-    }
-    return Integer.compare(this.rookSide, that.rookSide);
+    return this.color.compareTo(that.color);
   }
 }

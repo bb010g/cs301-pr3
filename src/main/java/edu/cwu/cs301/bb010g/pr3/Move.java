@@ -4,6 +4,7 @@ import java8.util.Comparators;
 import java8.util.Optional;
 
 import edu.cwu.cs301.bb010g.IntPair;
+import edu.cwu.cs301.bb010g.pr3.Board.CastlingOpts;
 import edu.cwu.cs301.bb010g.pr3.Piece.Type;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -25,7 +26,7 @@ public class Move implements Comparable<Move> {
   // Optional
   Type promotion;
   // Optional
-  CastlingData castling;
+  CastlingOpts.Opt castling;
   boolean check;
   boolean checkmate;
   boolean drawOffer;
@@ -38,7 +39,7 @@ public class Move implements Comparable<Move> {
     return Optional.ofNullable(this.promotion);
   }
 
-  public Optional<CastlingData> castling() {
+  public Optional<CastlingOpts.Opt> castling() {
     return Optional.ofNullable(this.castling);
   }
 
@@ -62,7 +63,7 @@ public class Move implements Comparable<Move> {
   }
 
   public static Move.Builder builderCastling(final Piece piece, final IntPair src,
-      final CastlingData castling) {
+      final CastlingOpts.Opt castling) {
     return Move.builder().piece(piece).src(src).castling(castling);
   }
 
@@ -122,7 +123,7 @@ public class Move implements Comparable<Move> {
       return promotionCmp;
     }
     val castlingCmp =
-        Comparators.nullsFirst(CastlingData::compareTo).compare(this.castling, that.castling);
+        Comparators.nullsFirst(CastlingOpts.Opt::compareTo).compare(this.castling, that.castling);
     if (castlingCmp != 0) {
       return castlingCmp;
     }
@@ -135,27 +136,5 @@ public class Move implements Comparable<Move> {
       return checkmateCmp;
     }
     return Boolean.compare(this.drawOffer, that.drawOffer);
-  }
-
-  @Value
-  @Wither
-  @AllArgsConstructor(staticName = "of")
-  public static class CastlingData implements Comparable<CastlingData> {
-    int castlingOpt;
-    Piece rook;
-    IntPair rookCoord;
-
-    @Override
-    public int compareTo(final CastlingData that) {
-      val castlingOptCmp = Integer.compare(this.castlingOpt, that.castlingOpt);
-      if (castlingOptCmp != 0) {
-        return castlingOptCmp;
-      }
-      val rookCmp = this.rook.compareTo(that.rook);
-      if (rookCmp != 0) {
-        return rookCmp;
-      }
-      return this.rookCoord.compareTo(that.rookCoord);
-    }
   }
 }

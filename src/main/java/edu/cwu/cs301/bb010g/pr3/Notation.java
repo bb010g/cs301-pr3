@@ -27,7 +27,7 @@ public class Notation {
     int emptyCount = 0;
     for (int rank = Board.RANKS - 1; rank >= 0; rank--) {
       for (int file = 0; file < Board.FILES; file++) {
-        val piece = board.piece(file, rank);
+        val piece = board.pieceRaw(file, rank);
         if (piece == null) {
           emptyCount++;
           if (file == Board.FILES - 1) {
@@ -68,8 +68,8 @@ public class Notation {
         }
         fen.append(c);
       }
-      if (rank == Board.RANKS - 1) {
-        break;
+      if (rank > 0) {
+        fen.append('/');
       }
     }
     fen.append(' ');
@@ -77,26 +77,22 @@ public class Notation {
     fen.append(' ');
     {
       val castling = board.castling();
-      val whiteOpts = castling.white();
-      val blackOpts = castling.black();
       boolean used = false;
-      if (whiteOpts != CastlingOpts.USED) {
+      if (castling.whiteASide() != -1) {
         used = true;
-        if ((whiteOpts & CastlingOpts.A_SIDE) != 0) {
-          fen.append('Q');
-        }
-        if ((whiteOpts & CastlingOpts.H_SIDE) != 0) {
-          fen.append('K');
-        }
+        fen.append('Q');
       }
-      if (blackOpts != CastlingOpts.USED) {
+      if (castling.whiteHSide() != -1) {
         used = true;
-        if ((blackOpts & CastlingOpts.A_SIDE) != 0) {
-          fen.append('q');
-        }
-        if ((blackOpts & CastlingOpts.H_SIDE) != 0) {
-          fen.append('k');
-        }
+        fen.append('K');
+      }
+      if (castling.blackASide() != -1) {
+        used = true;
+        fen.append('q');
+      }
+      if (castling.blackHSide() != -1) {
+        used = true;
+        fen.append('k');
       }
       if (!used) {
         fen.append('-');
@@ -112,7 +108,7 @@ public class Notation {
   }
 
   static Pattern FEN = Pattern.compile("(?<board>(?:[PpNnBbRrQqKk0-9]+/)+[PpNnBbRrQqKk0-9]+) "
-      + "(?<active>[wb]) (?<castling>[KQkq]|-) (?<enPassantTarget>[a-z]+[0-9]+|-) "
+      + "(?<active>[wb]) (?<castling>[KQkq]+|-) (?<enPassantTarget>[a-z]+[0-9]+|-) "
       + "(?<halfmoveClock>[0-9]+) (?<fullmoveNum>[0-9]+)");
   static Pattern FEN_BOARD_BS = Pattern.compile("/");
 
@@ -133,19 +129,17 @@ public class Notation {
       val boardStr = matcher.group("board");
       val ranks = Notation.FEN_BOARD_BS.split(boardStr);
       board = new Piece[Board.SIZE];
-      int i = 0;
-      for (int rankI = ranks.length - 1; rankI >= 0; rankI--) {
-        val rank = ranks[rankI];
-        int fileI = 0;
-        for (val ch : rank.toCharArray()) {
+      for (int rankOpp = Board.RANKS - 1; rankOpp >= 0; rankOpp--) {
+        val rankArr = ranks[rankOpp];
+        val rank = Board.RANKS - 1 - rankOpp;
+        int file = 0;
+        for (val ch : rankArr.toCharArray()) {
           if (Character.isDigit(ch)) {
-            final int skip = ch - 49;
-            i += skip;
-            fileI += skip;
+            final int skip = ch - 48;
+            file += skip;
           } else {
             val color = Character.isUpperCase(ch) ? Color.WHITE : Color.BLACK;
             final Type type;
-            int rookSide = -1;
             val p = Character.toLowerCase(ch);
             if (p == 'p') {
               type = Type.PAWN;
@@ -153,13 +147,6 @@ public class Notation {
               type = Type.KNIGHT;
             } else if (p == 'r') {
               type = Type.ROOK;
-              if ((Board.RANKS - rankI + 1) == Moves.mainRank(color)) {
-                if (fileI == 0) {
-                  rookSide = CastlingOpts.A_SIDE;
-                } else if (fileI == Board.FILES) {
-                  rookSide = CastlingOpts.H_SIDE;
-                }
-              }
             } else if (p == 'b') {
               type = Type.BISHOP;
             } else if (p == 'q') {
@@ -169,9 +156,8 @@ public class Notation {
             } else {
               throw new IllegalArgumentException();
             }
-            board[i] = Piece.of(type, color, rookSide);
-            i++;
-            fileI++;
+            board[file * Board.RANKS + rank] = Piece.of(type, color);
+            file++;
           }
         }
       }
@@ -190,22 +176,21 @@ public class Notation {
     {
       val castlingStr = matcher.group("castling");
       if (castlingStr.charAt(0) == '-') {
-        castling = CastlingOpts.BOTH_USED;
+        castling = CastlingOpts.BOTH_UNAVAILABLE;
       } else {
-        int whiteOpts = CastlingOpts.USED;
-        int blackOpts = CastlingOpts.USED;
+        CastlingOpts castling_ = CastlingOpts.BOTH_UNAVAILABLE;
         for (val ch : castlingStr.toCharArray()) {
           if (ch == 'Q') {
-            whiteOpts &= CastlingOpts.A_SIDE;
+            castling_ = castling_.withWhiteASide(0);
           } else if (ch == 'K') {
-            whiteOpts &= CastlingOpts.H_SIDE;
+            castling_ = castling_.withWhiteHSide(7);
           } else if (ch == 'q') {
-            blackOpts &= CastlingOpts.A_SIDE;
+            castling_ = castling_.withBlackASide(0);
           } else if (ch == 'k') {
-            blackOpts &= CastlingOpts.H_SIDE;
+            castling_ = castling_.withBlackHSide(7);
           }
         }
-        castling = CastlingOpts.of(whiteOpts, blackOpts);
+        castling = castling_;
       }
     }
     {
@@ -231,10 +216,9 @@ public class Notation {
   public String moveToAlg(final Move move) {
     if (move.castling().isPresent()) {
       val castling = move.castling().get();
-      val castlingOpt = castling.castlingOpt();
-      if (castlingOpt == CastlingOpts.A_SIDE) {
+      if (castling == CastlingOpts.Opt.A_SIDE) {
         return "0-0-0";
-      } else if (castlingOpt == CastlingOpts.H_SIDE) {
+      } else if (castling == CastlingOpts.Opt.H_SIDE) {
         return "0-0";
       } else {
         return null;
@@ -248,19 +232,19 @@ public class Notation {
     alg.append(Notation.coordToAlg(move.src()));
     if (move.capture()) {
       alg.append('x');
-      alg.append(Notation.coordToAlg(move.dest().get()));
-      if (move.enPassant()) {
-        alg.append("e.p.");
-      }
+    }
+    alg.append(Notation.coordToAlg(move.dest().get()));
+    if (move.enPassant()) {
+      alg.append("e.p.");
     }
     move.promotion().ifPresent(pType -> {
       alg.append('=');
       alg.append(Notation.typeChar(pType));
     });
     if (move.checkmate()) {
-      alg.append('+');
-    } else if (move.check()) {
       alg.append('#');
+    } else if (move.check()) {
+      alg.append('+');
     }
     if (move.drawOffer()) {
       alg.append(" (=)");
@@ -292,6 +276,7 @@ public class Notation {
     val art = new StringBuilder();
     art.append('{');
     IntStreams.range(1, Board.FILES * 2 - 1).forEach(n -> art.append('-'));
+    art.append('\n');
     for (int rankI = Board.RANKS - 1; rankI >= 0; rankI--) {
       for (int fileI = 0; fileI < Board.FILES; fileI++) {
         val piece = board[fileI * Board.RANKS + rankI];
@@ -307,6 +292,7 @@ public class Notation {
           art.append(' ');
         }
       }
+      art.append('\n');
     }
     IntStreams.range(0, Board.FILES * 2 - 2).forEach(n -> art.append('-'));
     art.append('}');

@@ -45,67 +45,85 @@ public class Board implements Comparable<Board>, Iterable<Pair<Piece, IntPair>> 
   @Wither
   @AllArgsConstructor(staticName = "of")
   public static class CastlingOpts implements Comparable<CastlingOpts> {
-    public static final int USED = 0;
-    public static final int A_SIDE = 1 << 0;
-    public static final int H_SIDE = 1 << 1;
+    int whiteASide;
+    int whiteHSide;
+    int blackASide;
+    int blackHSide;
 
-    public static final int UNUSED = CastlingOpts.A_SIDE & CastlingOpts.H_SIDE;
+    public enum Opt {
+      A_SIDE, H_SIDE;
+    }
 
-    int white;
-    int black;
-
-    public static final CastlingOpts BOTH_UNUSED =
-        new CastlingOpts(CastlingOpts.UNUSED, CastlingOpts.UNUSED);
-    public static final CastlingOpts BOTH_USED =
-        new CastlingOpts(CastlingOpts.USED, CastlingOpts.USED);
+    public static final CastlingOpts BOTH_UNAVAILABLE = new CastlingOpts(-1, -1, -1, -1);
 
     public boolean canCastle(final Color color) {
-      return color == Color.WHITE ? this.white != 0 : this.black != 0;
+      return color == Color.WHITE ? this.whiteASide != -1 && this.whiteHSide != 1
+          : this.blackASide != -1 && this.blackHSide != 1;
     }
 
-    public int castlingOpts(final Color color) {
-      return color == Color.WHITE ? this.white : this.black;
+    public int opt(final Color color, final CastlingOpts.Opt side) {
+      return color == Color.WHITE ? (side == Opt.A_SIDE ? this.whiteASide : this.whiteHSide)
+          : (side == Opt.A_SIDE ? this.blackASide : this.blackHSide);
     }
 
-    public CastlingOpts withOpts(final Color color, final int opts) {
-      return color == Color.WHITE ? this.withWhite(opts) : this.withBlack(opts);
+    public IntPair opts(final Color color) {
+      return color == Color.WHITE ? IntPair.of(this.whiteASide, this.whiteHSide)
+          : IntPair.of(this.blackASide, this.blackHSide);
+    }
+
+    public IntPair opts(final CastlingOpts.Opt side) {
+      return side == CastlingOpts.Opt.A_SIDE ? IntPair.of(this.whiteASide, this.blackASide)
+          : IntPair.of(this.whiteHSide, this.blackHSide);
+    }
+
+    public CastlingOpts withOpts(final Color color, final IntPair opts) {
+      return color == Color.WHITE ? this.withWhiteASide(opts.fst).withWhiteHSide(opts.snd)
+          : this.withBlackASide(opts.fst).withBlackHSide(opts.snd);
     }
 
     @Override
     public int compareTo(final CastlingOpts that) {
-      final int whiteCmp = Integer.compare(this.white, that.white);
-      if (whiteCmp != 0) {
-        return whiteCmp;
+      val whiteASideCmp = Integer.compare(this.whiteASide, that.whiteASide);
+      if (whiteASideCmp != 0) {
+        return whiteASideCmp;
       }
-      return Integer.compare(this.black, that.black);
+      val whiteHSideCmp = Integer.compare(this.whiteHSide, that.whiteHSide);
+      if (whiteHSideCmp != 0) {
+        return whiteHSideCmp;
+      }
+      val blackASideCmp = Integer.compare(this.blackASide, that.blackASide);
+      if (blackASideCmp != 0) {
+        return blackASideCmp;
+      }
+      return Integer.compare(this.blackHSide, that.blackHSide);
     }
   }
 
   public static Board starting() {
     val board = new Piece[Board.SIZE];
     val bRk = Board.RANKS - 1;
-    board[0 * Board.RANKS + bRk] = Piece.of(Type.ROOK, Color.BLACK, CastlingOpts.A_SIDE);
+    board[0 * Board.RANKS + bRk] = Piece.of(Type.ROOK, Color.BLACK);
     board[1 * Board.RANKS + bRk] = Piece.of(Type.KNIGHT, Color.BLACK);
     board[2 * Board.RANKS + bRk] = Piece.of(Type.BISHOP, Color.BLACK);
     board[3 * Board.RANKS + bRk] = Piece.of(Type.QUEEN, Color.BLACK);
     board[4 * Board.RANKS + bRk] = Piece.of(Type.KING, Color.BLACK);
     board[5 * Board.RANKS + bRk] = Piece.of(Type.BISHOP, Color.BLACK);
     board[6 * Board.RANKS + bRk] = Piece.of(Type.KNIGHT, Color.BLACK);
-    board[7 * Board.RANKS + bRk] = Piece.of(Type.ROOK, Color.BLACK, CastlingOpts.H_SIDE);
+    board[7 * Board.RANKS + bRk] = Piece.of(Type.ROOK, Color.BLACK);
     for (int iFile = 0; iFile < Board.FILES; iFile++) {
       board[iFile * Board.RANKS + bRk - 1] = Piece.of(Type.PAWN, Color.BLACK);
       board[iFile * Board.RANKS + 1] = Piece.of(Type.PAWN, Color.WHITE);
     }
-    board[0 * Board.RANKS + 0] = Piece.of(Type.ROOK, Color.WHITE, CastlingOpts.A_SIDE);
+    board[0 * Board.RANKS + 0] = Piece.of(Type.ROOK, Color.WHITE);
     board[1 * Board.RANKS + 0] = Piece.of(Type.KNIGHT, Color.WHITE);
     board[2 * Board.RANKS + 0] = Piece.of(Type.BISHOP, Color.WHITE);
     board[3 * Board.RANKS + 0] = Piece.of(Type.QUEEN, Color.WHITE);
-    board[4 * Board.RANKS + 0] = Piece.of(Type.KING, Color.WHITE, CastlingOpts.H_SIDE);
+    board[4 * Board.RANKS + 0] = Piece.of(Type.KING, Color.WHITE);
     board[5 * Board.RANKS + 0] = Piece.of(Type.BISHOP, Color.WHITE);
     board[6 * Board.RANKS + 0] = Piece.of(Type.KNIGHT, Color.WHITE);
     board[7 * Board.RANKS + 0] = Piece.of(Type.ROOK, Color.WHITE);
 
-    return Board.of(board, Color.WHITE, CastlingOpts.BOTH_UNUSED, null, 0, 1);
+    return Board.of(board, Color.WHITE, CastlingOpts.of(0, 7, 0, 7), null, 0, 1);
   }
 
   public Piece[] file(final int file) {
@@ -115,8 +133,20 @@ public class Board implements Comparable<Board>, Iterable<Pair<Piece, IntPair>> 
     return out;
   }
 
-  public Piece piece(final int file, final int rank) {
+  public Optional<Piece> piece(final int file, final int rank) {
+    return Optional.ofNullable(this.board[file * Board.RANKS + rank]);
+  }
+
+  public Optional<Piece> piece(final IntPair coord) {
+    return Optional.ofNullable(this.board[coord.fst * Board.RANKS + coord.snd]);
+  }
+
+  public Piece pieceRaw(final int file, final int rank) {
     return this.board[file * Board.RANKS + rank];
+  }
+
+  public Piece pieceRaw(final IntPair coord) {
+    return this.board[coord.fst * Board.RANKS + coord.snd];
   }
 
   public Board withPiece(final Piece piece, final int file, final int rank) {
@@ -157,10 +187,6 @@ public class Board implements Comparable<Board>, Iterable<Pair<Piece, IntPair>> 
       board[coord.fst * Board.RANKS + coord.snd] = null;
     }
     return this.withBoard(board);
-  }
-
-  public Piece piece(final IntPair coord) {
-    return this.board[coord.fst * Board.RANKS + coord.snd];
   }
 
   public Piece[] rankRaw(final int rank) {
@@ -326,11 +352,11 @@ public class Board implements Comparable<Board>, Iterable<Pair<Piece, IntPair>> 
       if ((b = this.board).length >= (hi = this.fence) && (i = this.index) >= 0
           && i < (this.index = hi)) {
         do {
-          if (++this.rank == Board.RANKS) {
+          action.accept(Pair.of(b[i], IntPair.of(this.file, this.rank)));
+          if (++this.rank == Board.FILES) {
             this.rank = 0;
             this.file++;
           }
-          action.accept(Pair.of(b[i], IntPair.of(this.file, this.rank)));
         } while (++i < hi);
       }
     }
@@ -340,11 +366,11 @@ public class Board implements Comparable<Board>, Iterable<Pair<Piece, IntPair>> 
       Objects.requireNonNull(action);
       if (this.index >= 0 && this.index < this.fence) {
         final Piece p = this.board[this.index++];
-        if (++this.rank == Board.RANKS) {
+        action.accept(Pair.of(p, IntPair.of(this.file, this.rank)));
+        if (++this.rank == Board.FILES) {
           this.rank = 0;
           this.file++;
         }
-        action.accept(Pair.of(p, IntPair.of(this.file, this.rank)));
         return true;
       }
       return false;

@@ -4,8 +4,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 
 import java8.util.Comparators;
+import java8.util.Lists2;
+import java8.util.Maps2;
 import java8.util.Optional;
 import java8.util.Spliterator;
 import java8.util.stream.RefStreams;
@@ -16,10 +19,8 @@ import edu.cwu.cs301.bb010g.IntPair;
 import edu.cwu.cs301.bb010g.Pair;
 import edu.cwu.cs301.bb010g.Util;
 import edu.cwu.cs301.bb010g.pr3.Board.CastlingOpts;
-import edu.cwu.cs301.bb010g.pr3.Move.CastlingData;
 import edu.cwu.cs301.bb010g.pr3.Piece.Color;
 import edu.cwu.cs301.bb010g.pr3.Piece.Type;
-import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Value;
 import lombok.val;
@@ -32,21 +33,26 @@ public class Moves {
   public final Map<Piece.Type, Map<IntPair, List<IntPair>>> moveOffsets;
   static {
     moveOffsets = new HashMap<>();
-    // pawns are special
+    // pawns are special!
+    // Maps2.of is a backport of Java 9 stuff, but I'm past the point of caring now
+    Moves.moveOffsets.put(Type.PAWN,
+        Maps2.of(IntPair.P0_1, Lists2.of(), IntPair.P1_1, Lists2.of(), IntPair.PN1_1, Lists2.of()));
     Moves.moveOffsets.put(Type.KNIGHT, Moves.leaper(1, 2));
     Moves.moveOffsets.put(Type.ROOK, Moves.rider(1, 0));
     Moves.moveOffsets.put(Type.BISHOP, Moves.rider(1, 1));
     {
       val offsets = new HashMap<IntPair, List<IntPair>>();
-      Moves.moveOffsets.put(Type.QUEEN, offsets);
       offsets.putAll(Moves.rider(1, 0));
       offsets.putAll(Moves.rider(1, 1));
+      Moves.moveOffsets.put(Type.QUEEN, offsets);
     }
+    // so are kings (everyone loves castling)
     {
       val offsets = new HashMap<IntPair, List<IntPair>>();
-      Moves.moveOffsets.put(Type.KING, offsets);
       offsets.putAll(Moves.leaper(1, 0));
       offsets.putAll(Moves.leaper(1, 1));
+      offsets.put(IntPair.P0_0, new ArrayList<>());
+      Moves.moveOffsets.put(Type.KING, offsets);
     }
   }
 
@@ -76,13 +82,13 @@ public class Moves {
     }
     if (!same) {
       offsets.put(IntPair.of(n, m), lst5 = new ArrayList<>());
-      if (!nZero) {
+      if (!mZero) {
         offsets.put(IntPair.of(n, -m), lst6 = new ArrayList<>());
       }
-      if (!mZero) {
+      if (!nZero) {
         offsets.put(IntPair.of(-n, m), lst7 = new ArrayList<>());
       }
-      if (!mZero && !nZero) {
+      if (!nZero && !mZero) {
         offsets.put(IntPair.of(-n, -m), lst8 = new ArrayList<>());
       }
     }
@@ -99,13 +105,13 @@ public class Moves {
       }
       if (!same) {
         lst5.add(IntPair.of(n, m).multMap(i));
-        if (!nZero) {
-          lst6.add(IntPair.of(-n, m).multMap(i));
-        }
         if (!mZero) {
-          lst7.add(IntPair.of(n, -m).multMap(i));
+          lst6.add(IntPair.of(n, -m).multMap(i));
         }
-        if (!mZero && !nZero) {
+        if (!nZero) {
+          lst7.add(IntPair.of(-n, m).multMap(i));
+        }
+        if (!nZero && !mZero) {
           lst8.add(IntPair.of(-n, -m).multMap(i));
         }
       }
@@ -225,47 +231,41 @@ public class Moves {
   // extra data to keep the board's application happy (not actually required, but useful)
   @Value
   @Wither
-  @AllArgsConstructor(access = AccessLevel.PRIVATE)
+  @AllArgsConstructor(staticName = "of")
   public class MovePlus implements Comparable<MovePlus> {
     Move move;
-    int castlingOpts;
-    int opposingCastlingOpts;
+    CastlingOpts castlingOpts;
     IntPair enPassantTarget;
-    // (king, rook(src, dest))
-    Pair<IntPair, IntPair> castlingDests;
+    // rook
+    Piece castlingRook;
 
     public static MovePlus of(final Move move) {
-      return new MovePlus(move, -1, -1, null, null);
+      return new MovePlus(move, null, null, null);
     }
 
-    public static MovePlus of(final Move move, final int castlingOpts) {
-      return new MovePlus(move, castlingOpts, -1, null, null);
-    }
-
-    public static MovePlus of(final Move move, final int castlingOpts,
-        final int opposingCastlingOpts) {
-      return new MovePlus(move, castlingOpts, opposingCastlingOpts, null, null);
+    public static MovePlus of(final Move move, final CastlingOpts castlingOpts) {
+      return new MovePlus(move, castlingOpts, null, null);
     }
 
     public static MovePlus ofEnPassant(final Move move, final IntPair enPassantTarget) {
-      return new MovePlus(move, -1, -1, enPassantTarget, null);
+      return new MovePlus(move, null, enPassantTarget, null);
     }
 
-    public static MovePlus ofCastling(final Move move, final IntPair kingDest,
-        final IntPair rookDest) {
-      return new MovePlus(move, CastlingOpts.USED, -1, null, Pair.of(kingDest, rookDest));
+    public static MovePlus ofCastling(final Move move, final CastlingOpts castlingOpts,
+        final Piece castlingRook) {
+      return new MovePlus(move, castlingOpts, null, castlingRook);
     }
 
-    public Optional<Integer> castlingOpts() {
-      return this.castlingOpts == -1 ? Optional.empty() : Optional.of(this.castlingOpts);
+    public Optional<CastlingOpts> castlingOpts() {
+      return this.castlingOpts == null ? Optional.empty() : Optional.of(this.castlingOpts);
     }
 
     public Optional<IntPair> enPassantTarget() {
       return Optional.ofNullable(this.enPassantTarget);
     }
 
-    public Optional<Pair<IntPair, IntPair>> castlingDests() {
-      return Optional.ofNullable(this.castlingDests);
+    public Optional<Piece> castlingRook() {
+      return Optional.ofNullable(this.castlingRook);
     }
 
     @Override
@@ -274,400 +274,374 @@ public class Moves {
       if (moveCmp != 0) {
         return moveCmp;
       }
-      val castlingOptsCmp = Integer.compare(this.castlingOpts, that.castlingOpts);
+      val castlingOptsCmp = this.castlingOpts.compareTo(that.castlingOpts);
       if (castlingOptsCmp != 0) {
         return castlingOptsCmp;
-      }
-      val opposingCastlingOptsCmp =
-          Integer.compare(this.opposingCastlingOpts, that.opposingCastlingOpts);
-      if (opposingCastlingOptsCmp != 0) {
-        return opposingCastlingOptsCmp;
       }
       val enPassantTargetCmp = Comparators.nullsFirst(IntPair::compareTo)
           .compare(this.enPassantTarget, that.enPassantTarget);
       if (enPassantTargetCmp != 0) {
         return enPassantTargetCmp;
       }
-      val castlingDestsCmp = Comparators
-          .nullsFirst((final Pair<IntPair, IntPair> p, final Pair<IntPair, IntPair> q) -> Pair
-              .compareToWithComp(Comparators.nullsFirst(IntPair::compareTo),
-                  Comparators.nullsFirst(IntPair::compareTo), p, q))
-          .compare(this.castlingDests, that.castlingDests);
-      return castlingDestsCmp;
+      val castlingRookCmp =
+          Comparators.nullsFirst(Piece::compareTo).compare(this.castlingRook, that.castlingRook);
+      return castlingRookCmp;
     }
+  }
+
+  public IntPair orientOffset(final IntPair offset, final Color color) {
+    return color == Color.WHITE ? offset : IntPair.of(offset.fst, -offset.snd);
+  }
+
+  /**
+   * @return Stream[(direction, Stream[dest coords])]
+   */
+  public Stream<Pair<IntPair, Stream<IntPair>>> uninhibitedDirectedPaths(final Board board,
+      final Piece piece, final IntPair pieceCoord, final int castlingRec) {
+    val DIST_IMMUT = Spliterator.DISTINCT & Spliterator.IMMUTABLE;
+    val pieceType = piece.type();
+    val pieceColor = piece.color();
+    val typeOffsets = Moves.moveOffsets.get(pieceType);
+    return StreamSupport.stream(typeOffsets.keySet(), DIST_IMMUT).map(direction -> {
+      return Pair.of(direction, RefStreams
+          .concat(StreamSupport.stream(typeOffsets.get(direction), DIST_IMMUT).map(offset -> {
+            return pieceCoord.add(Moves.orientOffset(offset, pieceColor));
+          }).takeWhile(Moves::validCoord),
+              Moves.enhancePath(direction, board, piece, pieceCoord, castlingRec)));
+    });
+  }
+
+  /**
+   * Add in the missing coords that moveOffsets can't produce for uninhibited.
+   */
+  private Stream<IntPair> enhancePath(final IntPair directionUnoriented, final Board board,
+      final Piece piece, final IntPair pieceCoord, final int castlingRec) {
+    final Stream.Builder<IntPair> enhancedCoords = RefStreams.builder();
+    // missing special cases for pawn and king
+    val pieceType = piece.type();
+    val pieceRank = pieceCoord.snd;
+    val pieceColor = piece.color();
+    val direction = Moves.orientOffset(directionUnoriented, pieceColor);
+    if (pieceType == Type.PAWN) {
+      // pawns have straight forward move-only, two-rank rush variation at start, diagonal
+      // capture-only, and en passant captures
+      if (direction.equals(IntPair.P0_1)) {
+        // move if not capturing
+        final IntPair singleMoveCoord =
+            pieceCoord.add(Moves.orientOffset(IntPair.P0_1, pieceColor));
+        if (Moves.validCoord(singleMoveCoord) && board.pieceRaw(singleMoveCoord) == null) {
+          enhancedCoords.add(singleMoveCoord);
+          if (pieceRank == Moves.pawnRank(pieceColor)) {
+            // rush if also not capturing
+            final IntPair rushMoveCoord =
+                pieceCoord.add(Moves.orientOffset(IntPair.P0_2, pieceColor));
+            if (Moves.validCoord(rushMoveCoord) && board.pieceRaw(rushMoveCoord) == null) {
+              enhancedCoords.add(rushMoveCoord);
+            }
+          }
+        }
+      } else {
+        val rightDirected = direction.equals(IntPair.P1_1);
+        val leftDirected = direction.equals(IntPair.PN1_1);
+        if (rightDirected || leftDirected) {
+          board.enPassantTarget().ifPresent(enPassantTarget -> {
+            // capture if nearby
+            final IntPair targetOffset =
+                Moves.orientOffset(enPassantTarget.subt(pieceCoord), pieceColor);
+            if ((rightDirected && targetOffset.equals(IntPair.P1_1))
+                || (leftDirected && targetOffset.equals(IntPair.PN1_1))) {
+              // en passant target is in the proper direction
+              enhancedCoords.add(enPassantTarget);
+            }
+          });
+          if (rightDirected) {
+            val rightCoord = pieceCoord.add(IntPair.P1_1);
+            if (Moves.validCoord(rightCoord)) {
+              board.piece(rightCoord).ifPresent(t -> enhancedCoords.add(rightCoord));
+            }
+          } else {
+            val leftCoord = pieceCoord.add(IntPair.PN1_1);
+            if (Moves.validCoord(leftCoord)) {
+              board.piece(leftCoord).ifPresent(t -> enhancedCoords.add(leftCoord));
+            }
+          }
+        }
+      }
+    } else if (castlingRec > 0 && pieceType == Type.KING && direction.fst == 0
+        && direction.snd == 0) {
+      // basic castling check
+      val castling = board.castling();
+      if (castling.canCastle(pieceColor)) {
+        if (castling.whiteASide() != 0 || castling.blackASide() != 0) {
+          val kingDest = IntPair.of(Moves.CASTLE_DEST_A_KING, pieceCoord.snd);
+          if (Moves.validCastlePieces(piece, pieceCoord, kingDest, CastlingOpts.Opt.A_SIDE, board,
+              castlingRec - 1)) {
+            enhancedCoords.add(kingDest);
+          }
+        } else if (castling.whiteHSide() != 0 || castling.blackHSide() != 0) {
+          val kingDest = IntPair.of(Moves.CASTLE_DEST_H_KING, pieceCoord.snd);
+          if (Moves.validCastlePieces(piece, pieceCoord, kingDest, CastlingOpts.Opt.H_SIDE, board,
+              castlingRec - 1)) {
+            enhancedCoords.add(kingDest);
+          }
+        }
+      }
+    }
+    return enhancedCoords.build();
+  }
+
+  public final int CASTLE_ITER_DIR_A = 1;
+  public final int CASTLE_DEST_A_ROOK = (Board.FILES / 2) - Moves.CASTLE_ITER_DIR_A;
+  public final int CASTLE_DEST_A_KING = Moves.CASTLE_DEST_A_ROOK - Moves.CASTLE_ITER_DIR_A;
+  public final int CASTLE_ITER_DIR_H = -1;
+  public final int CASTLE_DEST_H_ROOK = (Board.FILES / 2) - Moves.CASTLE_ITER_DIR_H;
+  public final int CASTLE_DEST_H_KING = Moves.CASTLE_DEST_H_ROOK - Moves.CASTLE_ITER_DIR_H;
+
+  public boolean validCastlePieces(final Piece kingPiece, final IntPair kingCoord,
+      final IntPair kingDest, final CastlingOpts.Opt opt, final Board board,
+      final int castlingRec) {
+    val rookFile = board.castling().opt(kingPiece.color(), opt);
+    val kingFile = kingCoord.fst;
+    val kingRank = kingCoord.snd;
+    val kingColor = kingPiece.color();
+    val rookPiece = board.pieceRaw(rookFile, kingRank);
+    val kingDestFile = kingDest.fst;
+    // not checking for castling with inCheck because castling on one side can't put the other side
+    // in check
+    val clearPathKing = Util.rangeIncClosed(kingFile, kingDestFile).allMatch(
+        f -> board.piece(f, kingRank).map(p -> p == kingPiece || p == rookPiece).orElse(true)
+            && !Moves.inCheck(board, kingColor, castlingRec).isPresent());
+    val rookDestFile =
+        opt == CastlingOpts.Opt.A_SIDE ? Moves.CASTLE_DEST_A_ROOK : Moves.CASTLE_DEST_H_ROOK;
+    val clearPathRook = Util.rangeIncClosed(rookFile, rookDestFile).anyMatch(
+        f -> board.piece(f, kingRank).filter(p -> !(p == kingPiece || p == rookPiece)).isPresent());
+    return clearPathKing && clearPathRook;
+  }
+
+  public Stream<IntPair> inhibitPathPieces(final Stream<IntPair> path, final Board board,
+      final Color color) {
+    return Util.takeWhileInclusive(
+        path.takeWhile(
+            coord -> !board.piece(coord).filter(test -> test.color() == color).isPresent()),
+        coord -> !board.piece(coord).filter(test -> test.color() != color).isPresent());
+  }
+
+  /**
+   * @return Stream[(direction, Stream[dest coords])]
+   */
+  public Stream<Pair<IntPair, Stream<IntPair>>> inhibitedDirectedPaths(final Board board,
+      final Piece piece, final IntPair pieceCoord, final int castlingRec,
+      final boolean checkPrevention) {
+    val pieceColor = piece.color();
+    if (checkPrevention) {
+      return Moves.uninhibitedDirectedPaths(board, piece, pieceCoord, castlingRec).map(
+          directedPath -> directedPath.mapSnd(path -> directedPath.fst.equals(IntPair.P0_0) ? path
+              : Moves.inhibitPathPieces(path, board, pieceColor)
+                  .filter(destCoord -> !Moves.inCheck(
+                      board.withPieces(Pair.of(null, pieceCoord), Pair.of(piece, destCoord)),
+                      pieceColor, castlingRec).isPresent())));
+    } else {
+      return Moves.uninhibitedDirectedPaths(board, piece, pieceCoord, castlingRec)
+          .map(directedPath -> directedPath
+              .mapSnd(path -> Moves.inhibitPathPieces(path, board, pieceColor)));
+    }
+  }
+
+  /**
+   * @return Stream[((piece, coord), Stream[(dest coords)])]
+   */
+  public Stream<Pair<Pair<Piece, IntPair>, Stream<IntPair>>> inhibitedDestsColor(final Board board,
+      final Color color, final int castlingRec, final boolean checkPrevention) {
+    return board.stream().filter(p -> p.fst != null && p.fst.color() == color)
+        .map(p -> Pair.of(p,
+            Moves.inhibitedDirectedPaths(board, p.fst, p.snd, castlingRec, checkPrevention)
+                .flatMap(directedPaths -> directedPaths.snd)));
+  }
+
+  /**
+   * @return Optional[((piece, coord), target)]
+   */
+  public Optional<Pair<Pair<Piece, IntPair>, IntPair>> inCheck(final Board board, final Color color,
+      final int castlingRec) {
+    val king = board.stream().filter(p -> {
+      return p.fst != null && p.fst.type() == Type.KING && p.fst.color() == color;
+    }).findAny().orElseThrow(() -> {
+      System.err.println(Notation.drawBoard(board.board()));
+      return new NoSuchElementException();
+    });
+    val kingCoord = king.snd;
+    val otherColor = color == Color.WHITE ? Color.BLACK : Color.WHITE;
+    return Moves.inhibitedDestsColor(board, otherColor, castlingRec, false)
+        .map(pDests -> Pair.of(pDests.fst, pDests.snd.filter(coord -> coord.equals(kingCoord))))
+        .flatMap(pTargetDests -> pTargetDests.snd.map(coord -> Pair.of(pTargetDests.fst, coord)))
+        .findAny();
+  }
+
+  public Stream<MovePlus> moves(final Board board) {
+    return Moves.inhibitedDestsColor(board, board.active(), 1, true)
+        .flatMap(pDests -> Moves.pCoordsToMovePlus(board, pDests));
+  }
+
+  public Stream<MovePlus> pCoordsToMovePlus(final Board board,
+      final Pair<Pair<Piece, IntPair>, Stream<IntPair>> pCoords) {
+    return Moves.pCoordsToMovePlus(board, pCoords.fst, pCoords.snd);
+  }
+
+  public Stream<MovePlus> pCoordsToMovePlus(final Board board, final Pair<Piece, IntPair> p,
+      final Stream<IntPair> coords) {
+    return Moves.pCoordsToMovePlus(board, p.fst, p.snd, coords);
+  }
+
+  public Stream<MovePlus> pCoordsToMovePlus(final Board board, final Piece piece,
+      final IntPair pieceCoord, final Stream<IntPair> coords) {
+    return coords.flatMap(coord -> Moves.pCoordToMovePlus(board, piece, pieceCoord, coord));
+  }
+
+  public Stream<MovePlus> pCoordToMovePlus(final Board board, final Piece piece,
+      final IntPair pieceCoord, final IntPair destCoord) {
+    final Stream.Builder<MovePlus> out = RefStreams.builder();
+    final Move.Builder move;
+    final IntPair enPassantTarget;
+    final Piece castlingRook;
+    val pieceType = piece.type();
+    val pieceColor = piece.color();
+    val pieceFile = pieceCoord.fst;
+    val pieceRank = pieceCoord.snd;
+    val otherColor = pieceColor == Color.WHITE ? Color.BLACK : Color.WHITE;
+    val destFile = destCoord.fst;
+    val destRank = destCoord.snd;
+    val destPiece = board.pieceRaw(destCoord);
+    val offset = Moves.orientOffset(destCoord.subt(pieceCoord), pieceColor);
+    val castlingOpts = board.castling();
+    final int colorASide, colorHSide, otherASide, otherHSide;
+    final int newColorASide, newColorHSide, newOtherASide, newOtherHSide;
+    {
+      val colorSide = castlingOpts.opts(pieceColor);
+      colorASide = colorSide.fst;
+      colorHSide = colorSide.snd;
+      val otherSide = castlingOpts.opts(otherColor);
+      otherASide = otherSide.fst;
+      otherHSide = otherSide.snd;
+    }
+    if (!(pieceType == Type.KING && offset.fst == 0 && offset.snd == 0)) {
+      // normal move or capture
+      if (colorASide != -1 || colorHSide != -1) {
+        if (pieceType == Type.KING) {
+          newColorASide = -1;
+          newColorHSide = -1;
+        } else if (pieceType == Type.ROOK && pieceFile == Moves.mainRank(pieceColor)) {
+          if (pieceFile == colorASide) {
+            newColorASide = -1;
+            newColorHSide = colorHSide;
+          } else if (pieceFile == colorHSide) {
+            newColorASide = colorASide;
+            newColorHSide = colorHSide;
+          } else {
+            newColorASide = colorASide;
+            newColorHSide = colorHSide;
+          }
+        } else {
+          newColorASide = colorASide;
+          newColorHSide = colorHSide;
+        }
+      } else {
+        newColorASide = colorASide;
+        newColorHSide = colorHSide;
+      }
+      if (destPiece == null) {
+        // move
+        newOtherASide = otherASide;
+        newOtherHSide = otherHSide;
+        if (offset.snd == 2 && pieceType == Type.PAWN) {
+          enPassantTarget = IntPair.of(pieceFile, pieceRank + (pieceColor == Color.WHITE ? -1 : 1));
+        } else {
+          enPassantTarget = null;
+        }
+        move = Move.builderMove(piece, pieceCoord, destCoord);
+      } else {
+        // capture
+        val destType = destPiece.type();
+        if (destType == Type.ROOK) {
+          // capture changes in other's castling options
+          if (destRank == otherASide) {
+            newOtherASide = -1;
+            newOtherHSide = otherHSide;
+          } else if (destRank == otherHSide) {
+            newOtherASide = otherASide;
+            newOtherHSide = -1;
+          } else {
+            newOtherASide = otherASide;
+            newOtherHSide = otherHSide;
+          }
+        } else {
+          newOtherASide = otherASide;
+          newOtherHSide = otherHSide;
+        }
+        if (board.enPassantTarget().map(t -> t.equals(destCoord)).orElse(false)) {
+          move = Move.builderEnPassant(piece, pieceCoord, destCoord);
+        } else {
+          move = Move.builderCapture(piece, pieceCoord, destCoord);
+        }
+        enPassantTarget = null;
+      }
+      castlingRook = null;
+    } else {
+      // castling
+      val castlingOpt =
+          destFile == Moves.CASTLE_DEST_A_KING ? CastlingOpts.Opt.A_SIDE : CastlingOpts.Opt.H_SIDE;
+      final int rookFile;
+      if (castlingOpt == CastlingOpts.Opt.A_SIDE) {
+        rookFile = colorASide;
+        newColorASide = -1;
+        newColorHSide = colorHSide;
+      } else {
+        rookFile = colorHSide;
+        newColorASide = colorASide;
+        newColorHSide = -1;
+      }
+      castlingRook = board.pieceRaw(rookFile, pieceRank);
+      newOtherASide = otherASide;
+      newOtherHSide = otherHSide;
+      enPassantTarget = null;
+      move = Move.builderCastling(piece, pieceCoord, castlingOpt);
+    }
+
+    val newCastlingOpts =
+        CastlingOpts.of(newColorASide, newColorHSide, newOtherASide, newOtherHSide);
+    if (pieceType == Type.PAWN && destRank == Moves.promotionRank(pieceColor)) {
+      out.add(MovePlus.of(move.promotion(Type.KNIGHT).build(), newCastlingOpts, enPassantTarget,
+          castlingRook));
+      out.add(MovePlus.of(move.promotion(Type.ROOK).build(), newCastlingOpts, enPassantTarget,
+          castlingRook));
+      out.add(MovePlus.of(move.promotion(Type.BISHOP).build(), newCastlingOpts, enPassantTarget,
+          castlingRook));
+      out.add(MovePlus.of(move.promotion(Type.QUEEN).build(), newCastlingOpts, enPassantTarget,
+          castlingRook));
+    } else {
+      out.add(MovePlus.of(move.build(), newCastlingOpts, enPassantTarget, castlingRook));
+    }
+    return out.build();
   }
 
   public Stream<Pair<Board, Move>> step(final Board board) {
-    return Moves.allMoves(board).map(m -> Moves.applyMove(board, m));
+    return Moves.moves(board).map(moveP -> Moves.applyMove(board, moveP));
   }
 
-  public Stream<MovePlus> allMoves(final Board board) {
-    return Moves.allMoves(board, board.active());
-  }
-
-  public Stream<MovePlus> allMoves(final Board board, final Color color) {
-    val promotionRank = Moves.promotionRank(color);
-    return board.stream().filter(p -> p.fst != null && p.fst.color().equals(color)).flatMap(p -> {
-      final IntPair coord = p.snd;
-      return Moves.moves(board, color, promotionRank, coord.fst, coord.snd, p.fst);
-    });
-  }
-
-  public Stream<MovePlus> attacking(final Board board, final Color attacker, final IntPair coord) {
-    val defender = attacker == Color.BLACK ? Color.WHITE : Color.BLACK;
-    val pieceTest = board.piece(coord);
-    val boardTest = (pieceTest != null && pieceTest.color() == defender) ? board
-        : board.withPiece(Piece.of(Type.PAWN, defender), coord.fst, coord.snd);
-    return Moves.attackingPresent(boardTest, attacker, coord);
-  }
-
-  public Stream<MovePlus> attacking(final Board board, final Color attacker, final int file,
-      final int rank) {
-    val defender = attacker == Color.BLACK ? Color.WHITE : Color.BLACK;
-    val pieceTest = board.piece(file, rank);
-    val boardTest = (pieceTest != null && pieceTest.color() == defender) ? board
-        : board.withPiece(Piece.of(Type.PAWN, defender), file, rank);
-    return Moves.attackingPresent(boardTest, attacker, file, rank);
-  }
-
-  public Stream<MovePlus> attackingPresent(final Board board, final Color attacker,
-      final IntPair coord) {
-    return Moves.allMoves(board, attacker)
-        .filter(m -> m.move.capture() && m.move.dest().equals(coord));
-  }
-
-  public Stream<MovePlus> attackingPresent(final Board board, final Color attacker, final int file,
-      final int rank) {
-    return Moves.allMoves(board, attacker).filter(m -> {
-      if (!m.move.capture()) {
-        return false;
-      }
-      // safe because capture is set -> move is set -> move is present
-      final IntPair dest = m.move.dest().get();
-      return dest.fst == file && dest.snd == rank;
-    });
-  }
-
-  public Stream<MovePlus> check(final Board board, final Color attacker) {
-    val defender = attacker == Color.BLACK ? Color.WHITE : Color.BLACK;
-    // guaranteed to be a king on the board
-    val king = board.stream().filter(p -> {
-      final Piece piece = p.fst;
-      return piece.type() == Type.KING && piece.color() == defender;
-    }).findAny().get();
-    return Moves.attackingPresent(board, attacker, king.snd);
-  }
-
-  public Stream<MovePlus> moves(final Board board, final int file, final int rank) {
-    final Color activeColor = board.active();
-    return Moves.moves(board, activeColor, Moves.promotionRank(activeColor), file, rank,
-        board.piece(file, rank));
-  }
-
-  public Stream<MovePlus> moves(final Board board, final IntPair coords) {
-    return Moves.moves(board, coords.fst, coords.snd);
-  }
-
-  public Stream<MovePlus> moves(final Board board, final Color color, final int file,
-      final int rank) {
-    return Moves.moves(board, color, Moves.promotionRank(color), file, rank,
-        board.piece(file, rank));
-  }
-
-  public Stream<MovePlus> moves(final Board board, final Color color, final IntPair coords) {
-    return Moves.moves(board, color, coords.fst, coords.snd);
-  }
-
-  public Stream<MovePlus> moves(final Board board, final Color color, final int promotionRank,
-      final int file, final int rank, final Piece piece) {
-    val otherColor = color == Color.WHITE ? Color.BLACK : Color.WHITE;
-    val coord = IntPair.of(file, rank);
-    val castling = board.castling();
-    val type = piece.type();
-    val king = board.stream().filter(p -> {
-      final Piece test = p.fst;
-      return test != null && test.type() == Type.KING && test.color() == color;
-    }).findAny().get();
-    val kingPiece = king.fst;
-    val kingCoord = king.snd;
-    if (type != Type.PAWN) {
-      return Moves.normalMoves(board, color, file, rank, piece, otherColor, type, coord, castling,
-          king, kingPiece, kingCoord);
-    } else {
-      return Moves.pawnMoves(board, color, rank, promotionRank, piece, otherColor, coord,
-          kingCoord);
-    }
-  }
-
-  private Stream<MovePlus> normalMoves(final Board board, final Color color, final int file,
-      final int rank, final Piece piece, final Color otherColor, final Type type,
-      final IntPair coord, final CastlingOpts castling, final Pair<Piece, IntPair> king,
-      final Piece kingPiece, final IntPair kingCoord) {
-    final Map<IntPair, List<IntPair>> offsets = Moves.moveOffsets.get(type);
-    val IMMUT_DISTINCT = Spliterator.IMMUTABLE | Spliterator.DISTINCT;
-    final int castlingOpts;
-    if (type == Type.ROOK) {
-      castlingOpts = castling.castlingOpts(color) & ~piece.rookSideRaw();
-    } else if (type == Type.KING) {
-      castlingOpts = CastlingOpts.USED;
-    } else {
-      castlingOpts = castling.castlingOpts(color);
-    }
-    final Stream<MovePlus> normalMoves = StreamSupport.stream(offsets.keySet(), IMMUT_DISTINCT)
-        .flatMap(path -> Util.takeWhileInclusive(
-            StreamSupport.stream(offsets.get(path), IMMUT_DISTINCT)
-                .map(offset -> coord.add(color == Color.WHITE ? offset : offset.neg()))
-                .takeWhile(destCoord -> Moves.validCoord(destCoord) && Moves.attackingPresent(
-                    board.withPieces(Pair.of(null, coord), Pair.of(piece, destCoord)), otherColor,
-                    kingCoord).count() == 0)
-                .map(destCoord -> Pair.of(destCoord, board.piece(destCoord) == null)),
-            dest -> dest.snd).map(dest -> {
-              final Move.Builder moveB = Move.builderMove(piece, coord, dest.fst);
-              if (!dest.snd) {
-                moveB.capture(true);
-                final Piece captured = board.piece(dest.fst);
-                if (captured.type() == Type.ROOK) {
-                  final int rookSideRaw = captured.rookSideRaw();
-                  final int otherCastlingOpts = castling.castlingOpts(otherColor);
-                  return MovePlus.of(moveB.build(), castlingOpts,
-                      rookSideRaw == -1 ? otherCastlingOpts : otherCastlingOpts & ~rookSideRaw);
-                }
-              }
-              return MovePlus.of(moveB.build(), castlingOpts);
-            }));
-    final Stream<MovePlus> castlingMoves = Moves.castlingMoves(board, color, file, rank, piece,
-        otherColor, type, king, kingPiece, kingCoord);
-    return RefStreams.concat(normalMoves, castlingMoves);
-  }
-
-  private Stream<MovePlus> castlingMoves(final Board board, final Color color, final int file,
-      final int rank, final Piece piece, final Color otherColor, final Type type,
-      final Pair<Piece, IntPair> king, final Piece kingPiece, final IntPair kingCoord) {
-    final Stream.Builder<MovePlus> moves = RefStreams.builder();
-    castling: if (type == Type.KING) {
-      if (!board.castling().canCastle(color)) {
-        break castling;
-      }
-      val rankArr = board.rankRaw(rank);
-      int castlingOpt = CastlingOpts.A_SIDE;
-      while (true) {
-        castlingInner: {
-          final int startFile;
-          final int endFile;
-          final int fileInc;
-          switch (castlingOpt) {
-            case CastlingOpts.A_SIDE:
-              startFile = 0;
-              endFile = Board.FILES;
-              fileInc = 1;
-              break;
-            case CastlingOpts.H_SIDE:
-              startFile = Board.FILES - 1;
-              endFile = -1;
-              fileInc = -1;
-              break;
-            default:
-              throw new IllegalStateException();
-          }
-          val rookDestF = (Board.FILES / 2) - fileInc;
-          val kingDestF = rookDestF - fileInc;
-          Pair<Piece, Integer> rook = null;
-          boolean rookDestFFound = false;
-          boolean kingFound = false;
-          boolean kingDestFFound = false;
-          // for each file from the side of castling to the other
-          for (int testFile = startFile; Math.abs(testFile - endFile) > 0; testFile += fileInc) {
-            /*
-             * 1. The king and the castling rook must not have previously moved, including having
-             * castled.
-             *
-             * 2. No square from the king's initial square to the king's final square may be under
-             * attack by an enemy piece.
-             *
-             * 3. All the squares between the king's initial and final squares (including the final
-             * square), and all of the squares between the rook's initial and final squares
-             * (including the final square), must be vacant except for the king and castling rook.
-             */
-            val testPiece = rankArr[testFile];
-            if (rook == null && !rookDestFFound) {
-              // looking for the right rook
-              if (testPiece != null && testPiece.type() == Type.ROOK
-                  && testPiece.rookSideRaw() == castlingOpt) {
-                rook = Pair.of(testPiece, testFile);
-              }
-            } else if ((rook != null && !rookDestFFound) || (rook == null && rookDestFFound)) {
-              // the path needs to stay clear, save for the king
-              // if we haven't found the rook, then finding one means we made it
-              // if we've found the rook, then finding its dest means we made it
-              if (testPiece != null && testPiece != kingPiece) {
-                if (rook == null && testPiece.type() == Type.ROOK
-                    && testPiece.rookSideRaw() == castlingOpt) {
-                  rook = Pair.of(testPiece, testFile);
-                } else {
-                  // the path wasn't clear
-                  break castlingInner;
-                }
-              }
-            }
-            // we'll only find them once each and we're always looking for them, so out here is fine
-            if (testFile == rookDestF) {
-              rookDestFFound = true;
-            }
-            if (!kingFound && !kingDestFFound) {
-              // waiting on the king
-              if (testPiece == kingPiece) {
-                // let's go
-                kingFound = true;
-              }
-            } else if ((kingFound && !kingDestFFound) || (!kingFound && kingDestFFound)) {
-              // the path needs to be clear, save for the rook
-              // the path needs to not put the king in check
-              if (testPiece != rook.fst) {
-                // the path wasn't clear
-                break castlingInner;
-              }
-              if (Moves
-                  .attackingPresent(board.withPieces(Pair.of(null, king.snd),
-                      Pair.of(piece, IntPair.of(testFile, rank))), otherColor, kingCoord)
-                  .count() != 0) {
-                // the path would put the king in check
-                break castlingInner;
-              }
-            }
-            // we'll only find it once and we're always looking for it, so out of the ifs is fine
-            if (testFile == kingDestF) {
-              kingDestFFound = true;
-            }
-            if (rook != null && rookDestFFound && kingFound && kingDestFFound) {
-              // we've satisfied the castling requirements already
-              break;
-            }
-          }
-          // check for validity
-          if (!(rook != null && rookDestFFound && kingFound && kingDestFFound)) {
-            // the castling requirements were never met
-            break castlingInner;
-          }
-          moves.add(MovePlus.ofCastling(
-              Move.builderCastling(kingPiece, kingCoord,
-                  CastlingData.of(castlingOpt, rook.fst, IntPair.of(rook.snd, file))).build(),
-              IntPair.of(kingDestF, rank), IntPair.of(rookDestF, rank)));
-        }
-        switch (castlingOpt) {
-          case CastlingOpts.A_SIDE:
-            castlingOpt = CastlingOpts.H_SIDE;
-            break;
-          case CastlingOpts.H_SIDE:
-            break;
-          default:
-            throw new IllegalStateException();
-        }
-      }
-    }
-    return moves.build();
-  }
-
-  private Stream<MovePlus> pawnMoves(final Board board, final Color color, final int rank,
-      final int promotionRank, final Piece piece, final Color otherColor, final IntPair coord,
-      final IntPair kingCoord) {
-    final Stream.Builder<MovePlus> moves = RefStreams.builder();
-    normal: {
-      val normalOffset = IntPair.of(color == Color.WHITE ? 1 : -1, 0);
-      val normalMove = coord.add(normalOffset);
-      if (Moves.validCoord(normalMove) && board.piece(normalMove) == null
-          && Moves
-              .attackingPresent(board.withPieces(Pair.of(null, coord), Pair.of(piece, normalMove)),
-                  otherColor, kingCoord)
-              .count() == 0) {
-        val moveB = Move.builder().piece(piece).src(coord).dest(normalMove);
-        if (normalMove.fst != promotionRank) {
-          moves.add(MovePlus.of(moveB.build()));
-        } else {
-          // mutation of the builder (sharing members) is safe because the members are
-          // immutable and can be shared, and the mutated entry is a new ref each time
-          moves.add(MovePlus.of(moveB.promotion(Type.KNIGHT).build()))
-              .add(MovePlus.of(moveB.promotion(Type.ROOK).build()))
-              .add(MovePlus.of(moveB.promotion(Type.BISHOP).build()))
-              .add(MovePlus.of(moveB.promotion(Type.QUEEN).build()));
-        }
-      } else {
-        // ensures that normalMove is clear for two square advance
-        break normal;
-      }
-      if (rank == Moves.pawnRank(color)) {
-        val initOffset = IntPair.of(color == Color.WHITE ? 2 : -2, 0);
-        val initMove = coord.add(initOffset);
-        if (Moves.validCoord(initMove) && board.piece(initMove) == null
-            && Moves
-                .attackingPresent(board.withPieces(Pair.of(null, coord), Pair.of(piece, initMove)),
-                    otherColor, kingCoord)
-                .count() == 0) {
-          val moveB = Move.builder().piece(piece).src(coord).dest(initMove);
-          if (initMove.fst != promotionRank) {
-            moves.add(MovePlus.ofEnPassant(moveB.build(), normalMove));
-          } else {
-            moves.add(MovePlus.ofEnPassant(moveB.promotion(Type.KNIGHT).build(), normalMove))
-                .add(MovePlus.ofEnPassant(moveB.promotion(Type.ROOK).build(), normalMove))
-                .add(MovePlus.ofEnPassant(moveB.promotion(Type.BISHOP).build(), normalMove))
-                .add(MovePlus.ofEnPassant(moveB.promotion(Type.QUEEN).build(), normalMove));
-          }
-        }
-      }
-    }
-    {
-      IntPair captOffset = IntPair.of(1, 1);
-      if (color == Color.BLACK) {
-        captOffset = captOffset.neg();
-      }
-      for (int loop = 0;; loop++) {
-        val captMove = coord.add(captOffset);
-        if (Moves.validCoord(captMove) && Moves
-            .attackingPresent(board.withPieces(Pair.of(null, coord), Pair.of(piece, captMove)),
-                otherColor, kingCoord)
-            .count() == 0) {
-          val moveB = Move.builder().piece(piece).src(coord).dest(captMove).capture(true);
-          if (board.piece(captMove) != null) {
-            if (captMove.fst != promotionRank) {
-              moves.add(MovePlus.of(moveB.build()));
-            } else {
-              moves.add(MovePlus.of(moveB.promotion(Type.KNIGHT).build()))
-                  .add(MovePlus.of(moveB.promotion(Type.ROOK).build()))
-                  .add(MovePlus.of(moveB.promotion(Type.BISHOP).build()))
-                  .add(MovePlus.of(moveB.promotion(Type.QUEEN).build()));
-            }
-          } else if (captMove.equals(board.enPassantTarget())) {
-            moves.add(MovePlus.of(moveB.enPassant(true).build()));
-          }
-        }
-        if (loop == 0) {
-          captOffset = IntPair.of(-1, 1);
-        } else if (loop == 1) {
-          break;
-        }
-      }
-    }
-    return moves.build();
-  }
-
-  public static Pair<Board, Move> applyMove(final Board board, final MovePlus movePlus) {
+  public Pair<Board, Move> applyMove(final Board board, final MovePlus movePlus) {
     val move = movePlus.move;
     val active = board.active();
     val newActive = active == Color.WHITE ? Color.BLACK : Color.WHITE;
-    Piece piece = move.piece();
+    val promotion = move.promotion();
+    val piece = promotion.map(t -> move.piece().withType(t)).orElse(move.piece());
     val src = move.src();
     val dest_ = move.dest();
-    val castlingOpts = movePlus.castlingOpts;
-    val opposingCastlingOpts = movePlus.opposingCastlingOpts;
     final Piece[] newBoardArr;
-    final CastlingOpts newCastlingOpts;
+    final CastlingOpts castlingOpts = board.castling();
+    final CastlingOpts newCastlingOpts = movePlus.castlingOpts().orElse(castlingOpts);
     final IntPair newEnPassantTarget;
     if (dest_.isPresent()) {
       {
         val dest = dest_.get();
-        val promotion_ = move.promotion();
-        if (promotion_.isPresent()) {
-          piece = piece.withType(promotion_.get());
-        }
         if (move.enPassant()) {
           // en passant
           newEnPassantTarget = movePlus.enPassantTarget;
@@ -679,36 +653,41 @@ public class Moves {
         newBoardArr[src.fst * Board.RANKS + src.snd] = null;
         newBoardArr[dest.fst * Board.RANKS + dest.snd] = piece;
       }
-      {
-        CastlingOpts newCastlingOpts_ = board.castling();
-        if (castlingOpts != -1) {
-          newCastlingOpts_ = newCastlingOpts_.withOpts(active, castlingOpts);
-        }
-        if (opposingCastlingOpts != -1) {
-          newCastlingOpts_ = newCastlingOpts_.withOpts(newActive, opposingCastlingOpts);
-        }
-        newCastlingOpts = newCastlingOpts_;
-      }
     } else {
       // castling
       val castling = move.castling().get();
-      val castlingDests = movePlus.castlingDests;
-      val kingDest = castlingDests.fst;
-      val rook = castling.rook();
-      val rookSrc = castling.rookCoord();
-      val rookDest = castlingDests.snd;
+      val rook = movePlus.castlingRook;
+      val kingDest =
+          castling == CastlingOpts.Opt.A_SIDE ? Moves.CASTLE_DEST_A_KING : Moves.CASTLE_DEST_H_KING;
+      val rookDest =
+          castling == CastlingOpts.Opt.A_SIDE ? Moves.CASTLE_DEST_A_ROOK : Moves.CASTLE_DEST_H_ROOK;
+      val rookSrc = castlingOpts.opt(active, castling);
       newBoardArr = new Piece[Board.SIZE];
       System.arraycopy(board.board(), 0, newBoardArr, 0, Board.SIZE);
-      newBoardArr[src.fst * Board.RANKS + src.snd] = null;
-      newBoardArr[rookSrc.fst * Board.RANKS + rookSrc.snd] = null;
-      newBoardArr[kingDest.fst * Board.RANKS + kingDest.snd] = piece;
-      newBoardArr[rookDest.fst * Board.RANKS + rookDest.snd] = rook;
-      newCastlingOpts = board.castling().withOpts(active, castlingOpts);
+      val srcRank = src.snd;
+      newBoardArr[src.fst * Board.RANKS + srcRank] = null;
+      newBoardArr[rookSrc * Board.RANKS + srcRank] = null;
+      newBoardArr[kingDest * Board.RANKS + srcRank] = piece;
+      newBoardArr[rookDest * Board.RANKS + srcRank] = rook;
       newEnPassantTarget = movePlus.enPassantTarget;
     }
     val newHalfmoveClock = board.halfmoveClock() + 1;
     val newFullmoveNum = board.fullmoveNum() + (active == Color.BLACK ? 1 : 0);
-    return Pair.of(Board.of(newBoardArr, newActive, newCastlingOpts, newEnPassantTarget,
-        newHalfmoveClock, newFullmoveNum), move);
+
+    val newBoard = Board.of(newBoardArr, newActive, newCastlingOpts, newEnPassantTarget,
+        newHalfmoveClock, newFullmoveNum);
+
+    val check = Moves.inCheck(newBoard, newActive, 1);
+    val moveCheck = move.withCheck(check.isPresent());
+    final Move moveCheckmate;
+    if (check.isPresent()) {
+      moveCheckmate =
+          moveCheck.withCheckmate(!Moves.inhibitedDestsColor(newBoard, newActive, 1, true)
+              .flatMap(Pair::snd).findAny().isPresent());
+    } else {
+      moveCheckmate = moveCheck;
+    }
+
+    return Pair.of(newBoard, moveCheckmate);
   }
 }

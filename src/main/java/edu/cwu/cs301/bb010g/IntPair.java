@@ -14,6 +14,14 @@ final public class IntPair implements Map.Entry<Integer, Integer>, Comparable<In
   public int fst;
   public int snd;
 
+  public static final IntPair P1_1 = new IntPair(1, 1);
+  public static final IntPair P0_0 = new IntPair(0, 0);
+  public static final IntPair P1_0 = new IntPair(1, 0);
+  public static final IntPair P0_1 = new IntPair(0, 1);
+  public static final IntPair P0_2 = new IntPair(0, 2);
+  public static final IntPair PN1_1 = new IntPair(-1, 1);
+  public static final IntPair PN1_0 = new IntPair(-1, 0);
+
   public Pair<Integer, Integer> asGeneric() {
     return Pair.of(this.fst, this.snd);
   }
@@ -31,6 +39,16 @@ final public class IntPair implements Map.Entry<Integer, Integer>, Comparable<In
   @Override
   public Integer setValue(final Integer value) {
     throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public String toString() {
+    val sb = new StringBuilder("IntPair(");
+    sb.append(this.fst);
+    sb.append(", ");
+    sb.append(this.snd);
+    sb.append(')');
+    return sb.toString();
   }
 
   @Override

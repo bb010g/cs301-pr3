@@ -30,16 +30,16 @@ final public class Pair<A, B> implements Map.Entry<A, B> {
     return IntPair.of((Integer) this.fst, (Integer) this.snd);
   }
 
-  public <U> Pair<U, B> mapFst(Function<? super A, ? extends U> mapping) {
+  public <U> Pair<U, B> mapFst(final Function<? super A, ? extends U> mapping) {
     return Pair.of(mapping.apply(this.fst), this.snd);
   }
 
-  public <U> Pair<A, U> mapSnd(Function<? super B, ? extends U> mapping) {
+  public <U> Pair<A, U> mapSnd(final Function<? super B, ? extends U> mapping) {
     return Pair.of(this.fst, mapping.apply(this.snd));
   }
 
-  public <U, V> Pair<U, V> bimap(Function<? super A, ? extends U> fstMapping,
-      Function<? super B, ? extends V> sndMapping) {
+  public <U, V> Pair<U, V> bimap(final Function<? super A, ? extends U> fstMapping,
+      final Function<? super B, ? extends V> sndMapping) {
     return Pair.of(fstMapping.apply(this.fst), sndMapping.apply(this.snd));
   }
 
@@ -56,6 +56,16 @@ final public class Pair<A, B> implements Map.Entry<A, B> {
   @Override
   public B setValue(final B value) {
     throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public String toString() {
+    val sb = new StringBuilder("Pair(");
+    sb.append(this.fst);
+    sb.append(", ");
+    sb.append(this.snd);
+    sb.append(')');
+    return sb.toString();
   }
 
   public static <A extends Comparable<A>, B extends Comparable<B>> int compareTo(final Pair<A, B> p,

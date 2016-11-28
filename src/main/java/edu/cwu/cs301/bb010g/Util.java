@@ -8,6 +8,8 @@ import java8.util.Spliterator;
 import java8.util.Spliterators;
 import java8.util.function.Consumer;
 import java8.util.function.Predicate;
+import java8.util.stream.IntStream;
+import java8.util.stream.IntStreams;
 import java8.util.stream.Stream;
 import java8.util.stream.StreamSupport;
 
@@ -92,14 +94,15 @@ public class Util {
   public class TakeWhileInclusiveSpliterator<T> implements Spliterator<T> {
     private final Spliterator<T> source;
     private final Predicate<T> predicate;
-    private boolean predicateHolds;
+    private boolean predicateHolds = true;
 
     @Override
     public boolean tryAdvance(final Consumer<? super T> action) {
       return this.predicateHolds && this.source.tryAdvance(e -> {
-        if (this.predicate.test(e)) {
+        if (this.predicateHolds) {
           action.accept(e);
         }
+        this.predicateHolds = this.predicate.test(e);
       });
     }
 
@@ -137,6 +140,14 @@ public class Util {
     @Override
     public Comparator<? super T> getComparator() {
       return this.source.getComparator();
+    }
+  }
+
+  public IntStream rangeIncClosed(final int a, final int b) {
+    if (a < b) {
+      return IntStreams.rangeClosed(a, b);
+    } else {
+      return IntStreams.rangeClosed(b, a);
     }
   }
 }
