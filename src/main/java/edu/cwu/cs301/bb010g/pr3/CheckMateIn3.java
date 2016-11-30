@@ -4,6 +4,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -35,7 +36,7 @@ public class CheckMateIn3 {
     final int DIST_IMMUT = Spliterator.DISTINCT | Spliterator.IMMUTABLE;
     String input;
     try {
-      input = Files.readAllLines(Paths.get("position.fen")).get(0);
+      input = Files.readAllLines(Paths.get("position.fen"), Charset.defaultCharset()).get(0);
     } catch (@SuppressWarnings("unused") IOException e) {
       System.err.println("Input file cannot be read.");
       return;
