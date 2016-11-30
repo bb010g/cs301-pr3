@@ -1,5 +1,7 @@
 package edu.cwu.cs301.bb010g.pr3;
 
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.Files;
@@ -29,37 +31,43 @@ public class CheckMateIn3 {
     CheckMateIn3.main(Arrays.asList(args));
   }
 
-  public void main(@SuppressWarnings("unused") final List<String> args) throws IOException {
+  public void main(@SuppressWarnings("unused") final List<String> args) throws FileNotFoundException {
     final int DIST_IMMUT = Spliterator.DISTINCT | Spliterator.IMMUTABLE;
-    final String input = Files.readAllLines(Paths.get("position1.fen")).get(0);
-    final PrintStream output = System.out;
-    final Board board = Notation.fenToBoard(input);
-    System.out.println("Input: " + Notation.boardToFen(board));
-    System.out.println(Notation.drawBoard(board.board()));
-    Stream<Pair<Pair<Board, List<Move>>, Boolean>> step = Moves.step(board).map(s -> {
-      final List<Move> moves = new ArrayList<>();
-      moves.add(s.snd);
-      return Pair.of(Pair.of(s.fst, moves), true);
-    });
-    for (int i = 0; i < (3 - 1) * 2; i++) {
-      step = step.flatMap(CheckMateIn3::stepHist);// .parallel();
-      // That single call means that this algorithm processes each new set of steps in parallel.
-      // /me puts on sunglasses
-      // /me also needs to figure out why his Spliterator probably doesn't handle parallel well
+    String input;
+    try {
+      input = Files.readAllLines(Paths.get("position.fen")).get(0);
+    } catch (@SuppressWarnings("unused") IOException e) {
+      System.err.println("Input file cannot be read.");
+      return;
     }
-    final Set<Pair<Board, List<Move>>> checkmates = new HashSet<>();
-    step/* .peek(CheckMateIn3::printFen_) */.map(Pair::fst).filter(boardHist -> {
-      final List<Move> hist = boardHist.snd;
-      final int histSize = hist.size();
-      return IntStreams.range(0, histSize).filter(n -> n % 2 == 0).mapToObj(hist::get)
-          .allMatch(Move::check) && hist.get(histSize - 1).checkmate();
-    }).forEach(checkmates::add);
-    System.out.println("Checkmates:");
-    StreamSupport.stream(checkmates, DIST_IMMUT, false).forEach(game -> {
-      output.println(Notation.drawBoard(game.fst.board()));
-      output.println(CheckMateIn3.listMoves(game.snd, game.fst.fullmoveNum()));
-    });
-    System.out.println("Done");
+    final Board board = Notation.fenToBoard(input);
+    try (final PrintStream output = new PrintStream(new FileOutputStream("solutions.txt", true))) {
+      output.println("Input:\n" + Notation.boardToFen(board));
+      output.println(Notation.drawBoard(board.board()));
+      Stream<Pair<Pair<Board, List<Move>>, Boolean>> step = Moves.step(board).map(s -> {
+        final List<Move> moves = new ArrayList<>();
+        moves.add(s.snd);
+        return Pair.of(Pair.of(s.fst, moves), true);
+      });
+      for (int i = 0; i < (3 - 1) * 2; i++) {
+        step = step.flatMap(CheckMateIn3::stepHist); // .parallel();
+        // That single call means that this algorithm processes each new set of steps in parallel.
+        // /me puts on sunglasses
+        // /me also needs to figure out why his Spliterator probably doesn't handle parallel well
+      }
+      final Set<Pair<Board, List<Move>>> checkmates = new HashSet<>();
+      step/* .peek(CheckMateIn3::printFen_) */.map(Pair::fst).filter(boardHist -> {
+        final List<Move> hist = boardHist.snd;
+        final int histSize = hist.size();
+        return IntStreams.range(0, histSize).filter(n -> n % 2 == 0).mapToObj(hist::get)
+            .allMatch(Move::check) && hist.get(histSize - 1).checkmate();
+      }).forEach(checkmates::add);
+      output.println("Checkmates:");
+      StreamSupport.stream(checkmates, DIST_IMMUT, false).forEach(game -> {
+        output.println(Notation.drawBoard(game.fst.board()));
+        output.println(CheckMateIn3.listMoves(game.snd, game.fst.fullmoveNum()));
+      });
+    }
   }
 
   public Stream<Pair<Pair<Board, List<Move>>, Boolean>> stepHist(

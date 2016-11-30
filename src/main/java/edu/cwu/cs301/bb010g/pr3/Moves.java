@@ -367,8 +367,7 @@ public class Moves {
           }
         }
       }
-    } else if (castlingRec > 0 && pieceType == Type.KING && direction.fst == 0
-        && direction.snd == 0) {
+    } else if (castlingRec > 0 && pieceType == Type.KING && direction.equals(IntPair.P0_0)) {
       // basic castling check
       val castling = board.castling();
       if (castling.canCastle(pieceColor)) {
@@ -410,7 +409,7 @@ public class Moves {
     // in check
     val clearPathKing = Util.rangeIncClosed(kingFile, kingDestFile).allMatch(
         f -> board.piece(f, kingRank).map(p -> p == kingPiece || p == rookPiece).orElse(true)
-            && !Moves.inCheck(board, kingColor, castlingRec).isPresent());
+            && !Moves.inCheck(board, kingColor, castlingRec).findAny().isPresent());
     val rookDestFile =
         opt == CastlingOpts.Opt.A_SIDE ? Moves.CASTLE_DEST_A_ROOK : Moves.CASTLE_DEST_H_ROOK;
     val clearPathRook = Util.rangeIncClosed(rookFile, rookDestFile).anyMatch(
@@ -439,7 +438,7 @@ public class Moves {
               : Moves.inhibitPathPieces(path, board, pieceColor)
                   .filter(destCoord -> !Moves.inCheck(
                       board.withPieces(Pair.of(null, pieceCoord), Pair.of(piece, destCoord)),
-                      pieceColor, castlingRec).isPresent())));
+                      pieceColor, castlingRec).findAny().isPresent())));
     } else {
       return Moves.uninhibitedDirectedPaths(board, piece, pieceCoord, castlingRec)
           .map(directedPath -> directedPath
@@ -461,7 +460,7 @@ public class Moves {
   /**
    * @return Optional[((piece, coord), target)]
    */
-  public Optional<Pair<Pair<Piece, IntPair>, IntPair>> inCheck(final Board board, final Color color,
+  public Stream<Pair<Pair<Piece, IntPair>, IntPair>> inCheck(final Board board, final Color color,
       final int castlingRec) {
     val king = board.stream().filter(p -> {
       return p.fst != null && p.fst.type() == Type.KING && p.fst.color() == color;
@@ -473,8 +472,7 @@ public class Moves {
     val otherColor = color == Color.WHITE ? Color.BLACK : Color.WHITE;
     return Moves.inhibitedDestsColor(board, otherColor, castlingRec, false)
         .map(pDests -> Pair.of(pDests.fst, pDests.snd.filter(coord -> coord.equals(kingCoord))))
-        .flatMap(pTargetDests -> pTargetDests.snd.map(coord -> Pair.of(pTargetDests.fst, coord)))
-        .findAny();
+        .flatMap(pTargetDests -> pTargetDests.snd.map(coord -> Pair.of(pTargetDests.fst, coord)));
   }
 
   public Stream<MovePlus> moves(final Board board) {
@@ -677,7 +675,7 @@ public class Moves {
     val newBoard = Board.of(newBoardArr, newActive, newCastlingOpts, newEnPassantTarget,
         newHalfmoveClock, newFullmoveNum);
 
-    val check = Moves.inCheck(newBoard, newActive, 1);
+    val check = Moves.inCheck(newBoard, newActive, 1).findAny();
     val moveCheck = move.withCheck(check.isPresent());
     final Move moveCheckmate;
     if (check.isPresent()) {

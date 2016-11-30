@@ -107,7 +107,7 @@ public class Notation {
     return fen.toString();
   }
 
-  static Pattern FEN = Pattern.compile("(?<board>(?:[PpNnBbRrQqKk0-9]+/)+[PpNnBbRrQqKk0-9]+) "
+  static Pattern FEN = Pattern.compile("(?<board>(?:[PpNnBbRrQqKk0-9]+/)*[PpNnBbRrQqKk0-9]+) "
       + "(?<active>[wb]) (?<castling>[KQkq]+|-) (?<enPassantTarget>[a-z]+[0-9]+|-) "
       + "(?<halfmoveClock>[0-9]+) (?<fullmoveNum>[0-9]+)");
   static Pattern FEN_BOARD_BS = Pattern.compile("/");
@@ -183,11 +183,11 @@ public class Notation {
           if (ch == 'Q') {
             castling_ = castling_.withWhiteASide(0);
           } else if (ch == 'K') {
-            castling_ = castling_.withWhiteHSide(7);
+            castling_ = castling_.withWhiteHSide(Board.FILES - 1);
           } else if (ch == 'q') {
             castling_ = castling_.withBlackASide(0);
           } else if (ch == 'k') {
-            castling_ = castling_.withBlackHSide(7);
+            castling_ = castling_.withBlackHSide(Board.FILES - 1);
           }
         }
         castling = castling_;

@@ -6,14 +6,27 @@
 \starttext
 \coverbegin{2}{Cities}%
     {Brayden Banks (36318065) \\
-     Rico Adrian (12345678) \\
-     Zak Switzer (12345678)}
+     Rico Adrian (38298506) \\
+     Zak Switzer (30794105)}
 
-\par {\bf Program Description:} Finds 3-move mates in a given chess problem.
+\par
+{\bf Program Description:}
+Finds 3-move mates in a given chess problem.
 
-{\bf Use of the Program:} I LOVE TO CODE AND STUFF
+{\bf Use of the Program:}
+Provide a valid chess board in FEN as the file {\tt position.fen}. Output will
+be appended to {\tt solutions.txt}. The input in FEN and a visualization
+of the board will be output, followed by a list of checkmates that can be
+reached in 3 moves. Each checkmate listed will consist of a visualization
+of the board state at the end of the game and the series of moves used to
+get there. Each white move will put black in check. The more memory you can
+give to the JVM, the faster this will probably run. This program evaluates
+all possible valid chess moves.
 
-{\bf Bugs:} Plenty.
+{\bf Bugs:}
+The 50-move rule is not followed. However, this is not solvable with just a FEN
+input due to it not keeping track of when the last capture or pawn movement was.
+This would be easily implementable with an extension to FEN.
 
 \stoptext
 
